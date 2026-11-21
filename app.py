@@ -19,11 +19,11 @@ st.markdown(
             padding-right: 0.8rem !important;
             padding-top: 1.5rem !important;
         }
-        h1 { font-size: 1.5rem !important; }
-        h2, h3 { font-size: 1.15rem !important; }
+        h1 { font-size: 1.45rem !important; }
+        h2, h3 { font-size: 1.12rem !important; }
 
         .stTabs [data-baseweb="tab-list"] {
-            gap: 0.4rem !important;
+            gap: 0.35rem !important;
             flex-wrap: wrap !important;
         }
         .stTabs [data-baseweb="tab"] {
@@ -32,10 +32,10 @@ st.markdown(
         }
 
         [data-testid="stMetricValue"] {
-            font-size: 1.3rem !important;
+            font-size: 1.25rem !important;
         }
         [data-testid="stMetricLabel"] {
-            font-size: 0.8rem !important;
+            font-size: 0.78rem !important;
         }
 
         .katex-display {
@@ -103,8 +103,8 @@ with col_btn:
         help="Executa uma nova realização estatística com os mesmos parâmetros físicos",
     )
 
-# --- Barra lateral ---
-st.sidebar.header("1. Modalidade Experimental")
+# --- Barra lateral organizada por estágio experimental ---
+st.sidebar.header("Modalidade Experimental")
 modo = st.sidebar.radio(
     "Configuração do aparato:",
     [
@@ -116,30 +116,33 @@ modo = st.sidebar.radio(
 )
 
 st.sidebar.divider()
-st.sidebar.header("2. Parâmetros da Bancada")
-n_atomos = st.sidebar.slider("Átomos emitidos pela fonte (N₀)", 20, 5000, step=20, key="n_atomos")
+
+with st.sidebar.expander("⚙️ Configuração da Fonte", expanded=True):
+    n_atomos = st.slider("Átomos emitidos (N₀)", 20, 5000, step=20, key="n_atomos")
+    st.caption("Feixe térmico não polarizado (ρ̂ = Î/2).")
 
 if modo == "1. Quantização (1 Filtro)":
-    theta1 = st.sidebar.slider("Orientação do Filtro 1 — θ₁ (°)", 0, 180, key="theta1")
+    with st.sidebar.expander("🧲 Filtro 1 — Analisador", expanded=True):
+        theta1 = st.slider("Orientação θ₁ (°)", 0, 180, key="theta1")
 
 elif modo == "2. Projeção (2 Filtros)":
-    st.sidebar.markdown("**Filtro 1 — Preparador**")
-    theta1 = st.sidebar.slider("Orientação θ₁ (°)", 0, 180, key="theta1")
-    feixe1 = st.sidebar.radio("Canal selecionado em F1", ["+", "-"], horizontal=True, key="feixe1")
-    st.sidebar.markdown("**Filtro 2 — Analisador**")
-    theta2 = st.sidebar.slider("Orientação θ₂ (°)", 0, 180, key="theta2")
+    with st.sidebar.expander("🧲 Filtro 1 — Preparador", expanded=True):
+        theta1 = st.slider("Orientação θ₁ (°)", 0, 180, key="theta1")
+        feixe1 = st.radio("Canal transmitido (F1)", ["+", "-"], horizontal=True, key="feixe1")
+    with st.sidebar.expander("🧲 Filtro 2 — Analisador", expanded=True):
+        theta2 = st.slider("Orientação θ₂ (°)", 0, 180, key="theta2")
 
 else:
-    st.sidebar.markdown("**Filtro 1 — Preparador**")
-    theta1 = st.sidebar.slider("Orientação θ₁ (°)", 0, 180, key="theta1")
-    feixe1 = st.sidebar.radio("Canal selecionado em F1", ["+", "-"], horizontal=True, key="feixe1")
-    st.sidebar.markdown("**Filtro 2 — Intermediário**")
-    theta2 = st.sidebar.slider("Orientação θ₂ (°)", 0, 180, key="theta2")
-    feixe2 = st.sidebar.radio("Canal selecionado em F2", ["+", "-"], horizontal=True, key="feixe2")
-    st.sidebar.markdown("**Filtro 3 — Analisador Final**")
-    theta3 = st.sidebar.slider("Orientação θ₃ (°)", 0, 180, key="theta3")
+    with st.sidebar.expander("🧲 Filtro 1 — Preparador", expanded=True):
+        theta1 = st.slider("Orientação θ₁ (°)", 0, 180, key="theta1")
+        feixe1 = st.radio("Canal transmitido (F1)", ["+", "-"], horizontal=True, key="feixe1")
+    with st.sidebar.expander("🧲 Filtro 2 — Intermediário", expanded=True):
+        theta2 = st.slider("Orientação θ₂ (°)", 0, 180, key="theta2")
+        feixe2 = st.radio("Canal transmitido (F2)", ["+", "-"], horizontal=True, key="feixe2")
+    with st.sidebar.expander("🧲 Filtro 3 — Analisador Final", expanded=True):
+        theta3 = st.slider("Orientação θ₃ (°)", 0, 180, key="theta3")
 
-with st.sidebar.expander("🎲 Controle Estatístico (Semente)"):
+with st.sidebar.expander("🎲 Controle Estatístico (Semente)", expanded=False):
     st.checkbox(
         "Fixar semente aleatória",
         key="usar_seed",
@@ -147,7 +150,7 @@ with st.sidebar.expander("🎲 Controle Estatístico (Semente)"):
     )
     if st.session_state.usar_seed:
         st.number_input("Valor da semente", min_value=0, max_value=999999, step=1, key="seed_valor")
-        st.caption("Com semente fixa, clicar em 'Novo disparo' incrementa a semente em +1.")
+        st.caption("Com semente fixa, 'Novo disparo' incrementa a semente em +1.")
 
 st.sidebar.divider()
 st.sidebar.caption("💡 Reduza N₀ (ex.: 40 átomos) e execute novos disparos para observar flutuações estatísticas em amostras finitas.")
@@ -253,7 +256,7 @@ pct_mais = sim["f_mais"] * 100
 pct_menos = sim["f_menos"] * 100
 
 
-# --- Bancada SVG ---
+# --- Bancada SVG Responsiva ---
 def desenhar_bancada():
     w_mais = max(1.5, (n_final_mais / max(1, n_atomos)) * 7)
     w_menos = max(1.5, (n_final_menos / max(1, n_atomos)) * 7)
@@ -360,13 +363,22 @@ def desenhar_bancada():
         """
 
     html = f"""
-    <div style="font-family: system-ui, -apple-system, sans-serif; margin: 0; padding: 0;">
-      <svg viewBox="0 0 860 160" width="100%" height="160" style="background:#161922; border-radius:12px; border:1px solid #2d3240;">
+    <style>
+      .bancada-wrap {{ font-family: system-ui, -apple-system, sans-serif; margin: 0; padding: 0; }}
+      .bancada-svg {{ width: 100%; height: 155px; display: block; background:#161922; border-radius:12px; border:1px solid #2d3240; }}
+      @media (max-width: 768px) {{
+        .bancada-wrap {{ overflow-x: auto; -webkit-overflow-scrolling: touch; }}
+        .bancada-svg {{ min-width: 680px; height: 145px; }}
+      }}
+    </style>
+    <div class="bancada-wrap">
+      <svg class="bancada-svg" viewBox="0 0 860 160">
         {corpo}
       </svg>
     </div>
     """
-    components.html(html, height=164)
+    components.html(html, height=166)
+    st.caption("Diagrama esquemático do fluxo de partículas (N_+ + N_- = N_entrada em cada analisador).")
 
 
 # --- Gráficos ---
@@ -388,12 +400,12 @@ def grafico_quantico(altura=380):
         marker=dict(color="#EF553B", size=5, opacity=0.7)
     ))
     fig.update_layout(
-        title=f"⚛️ Anteparo Quântico (esquemático) — {nome_final} (θ = {theta_anteparo}°)",
+        title=dict(text=f"⚛️ Anteparo Quântico (esquemático) — {nome_final} (θ = {theta_anteparo}°)", font=dict(size=14)),
         xaxis=dict(title="Eixo x", range=[-2, 2], zeroline=True, gridcolor="#262a36"),
         yaxis=dict(title="Eixo z", range=[-2, 2], zeroline=True, gridcolor="#262a36", scaleanchor="x", scaleratio=1),
         height=altura,
-        margin=dict(l=20, r=20, t=45, b=80),
-        legend=dict(orientation="h", yanchor="top", y=-0.25, xanchor="center", x=0.5),
+        margin=dict(l=15, r=15, t=50, b=90),
+        legend=dict(orientation="h", yanchor="top", y=-0.26, xanchor="center", x=0.5, font=dict(size=11)),
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="#12151e",
     )
@@ -420,12 +432,12 @@ def grafico_classico(altura=350):
         marker=dict(color="#F59E0B", size=5, opacity=0.65)
     ))
     fig.update_layout(
-        title=f"🏛️ Previsão Clássica (esquemática) — {nome_final} (θ = {theta_anteparo}°)",
+        title=dict(text=f"🏛️ Previsão Clássica (esquemática) — {nome_final} (θ = {theta_anteparo}°)", font=dict(size=14)),
         xaxis=dict(title="Eixo x", range=[-2, 2], zeroline=True, gridcolor="#262a36"),
         yaxis=dict(title="Eixo z", range=[-2, 2], zeroline=True, gridcolor="#262a36", scaleanchor="x", scaleratio=1),
         height=altura,
-        margin=dict(l=20, r=20, t=45, b=80),
-        legend=dict(orientation="h", yanchor="top", y=-0.25, xanchor="center", x=0.5),
+        margin=dict(l=15, r=15, t=50, b=90),
+        legend=dict(orientation="h", yanchor="top", y=-0.26, xanchor="center", x=0.5, font=dict(size=11)),
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="#12151e",
     )
@@ -449,10 +461,10 @@ def grafico_barras():
     ])
     fig_bar.update_layout(
         barmode="group",
-        yaxis=dict(title="Fração (%)", range=[0, 105]),
-        height=200,
-        margin=dict(l=10, r=10, t=10, b=10),
-        legend=dict(orientation="h", y=1.15, x=0.5, xanchor="center"),
+        yaxis=dict(title="Fração (%)", range=[0, 108]),
+        height=210,
+        margin=dict(l=10, r=10, t=25, b=10),
+        legend=dict(orientation="h", y=1.18, x=0.5, xanchor="center", font=dict(size=11)),
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
     )
@@ -749,12 +761,12 @@ with aba_exp:
         col_cl, col_qt = st.columns(2)
 
         with col_cl:
-            fig_cl, txt_cl = grafico_classico(altura=350)
+            fig_cl, txt_cl = grafico_classico(altura=360)
             st.plotly_chart(fig_cl, use_container_width=True)
             st.warning(txt_cl)
 
         with col_qt:
-            st.plotly_chart(grafico_quantico(altura=350), use_container_width=True)
+            st.plotly_chart(grafico_quantico(altura=360), use_container_width=True)
             exibir_explicacao_quantica()
 
         st.divider()
@@ -762,7 +774,7 @@ with aba_exp:
         with col_m:
             st.metric("Saída (+) [+ℏ/2]", f"{n_final_mais} átomos", f"{pct_mais:.1f}% (desvio {desvio_mais*100:+.1f}%)", delta_color="off")
             st.metric("Saída (-) [-ℏ/2]", f"{n_final_menos} átomos", f"{pct_menos:.1f}% (desvio {desvio_menos*100:+.1f}%)", delta_color="off")
-            st.caption(f"Incerteza estatística esperada: σ_f = ±{sigma_f*100:.2f}%")
+            st.caption(f"N₀ = {n_atomos} | σ_f = ±{sigma_f*100:.2f}%")
         with col_b:
             st.plotly_chart(grafico_barras(), use_container_width=True)
 
@@ -770,7 +782,7 @@ with aba_exp:
         col_tela, col_info = st.columns([1.15, 1])
 
         with col_tela:
-            st.plotly_chart(grafico_quantico(altura=380), use_container_width=True)
+            st.plotly_chart(grafico_quantico(altura=390), use_container_width=True)
 
         with col_info:
             st.caption(
@@ -945,8 +957,8 @@ with aba_alg:
                 xaxis=dict(title="Ângulo relativo Δθ (°)", range=[-5, 185], gridcolor="#262a36"),
                 yaxis=dict(title="Probabilidade condicional (+) [%]", range=[-5, 108], gridcolor="#262a36"),
                 height=360,
-                margin=dict(l=20, r=20, t=20, b=20),
-                legend=dict(orientation="h", y=1.12, x=0.5, xanchor="center"),
+                margin=dict(l=15, r=15, t=25, b=20),
+                legend=dict(orientation="h", y=1.14, x=0.5, xanchor="center", font=dict(size=11)),
                 paper_bgcolor="rgba(0,0,0,0)",
                 plot_bgcolor="#12151e",
             )
