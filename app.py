@@ -269,7 +269,7 @@ def desenhar_bancada():
 
         <rect x="320" y="40" width="140" height="80" rx="10" fill="#1e293b" stroke="#f59e0b" stroke-width="2.5"/>
         <text x="390" y="72" fill="#fff" font-size="14" text-anchor="middle" font-weight="bold">Ímã SG (Filtro 1)</text>
-        <text x="390" y="96" fill="#fcd34d" font-size="13" text-anchor="middle">θ₁ = {theta1}°</text>
+        <text x="390" y="96" fill="#fcd34d" font-size="13" text-anchor="middle">θ₁ = {st.session_state.theta1}°</text>
 
         <line x1="460" y1="68" x2="660" y2="38" stroke="#00CC96" stroke-width="{w_mais:.1f}"/>
         <text x="560" y="38" fill="#00CC96" font-size="13" text-anchor="middle" font-weight="bold">Saída (+) : {n_final_mais}</text>
@@ -291,7 +291,7 @@ def desenhar_bancada():
 
         <rect x="195" y="40" width="125" height="80" rx="10" fill="#1e293b" stroke="#60a5fa" stroke-width="2"/>
         <text x="257" y="72" fill="#fff" font-size="13" text-anchor="middle" font-weight="bold">Filtro 1 (Prep.)</text>
-        <text x="257" y="95" fill="#93c5fd" font-size="12" text-anchor="middle">θ₁ = {theta1}° | só ({feixe1})</text>
+        <text x="257" y="95" fill="#93c5fd" font-size="12" text-anchor="middle">θ₁ = {st.session_state.theta1}° | só ({st.session_state.feixe1})</text>
 
         <line x1="320" y1="68" x2="455" y2="68" stroke="#38bdf8" stroke-width="{w_f1:.1f}"/>
         <text x="387" y="56" fill="#38bdf8" font-size="12" text-anchor="middle" font-weight="bold">{n_ent_2} em |χ₁⟩</text>
@@ -302,7 +302,7 @@ def desenhar_bancada():
 
         <rect x="455" y="40" width="125" height="80" rx="10" fill="#1e293b" stroke="#f59e0b" stroke-width="2.5"/>
         <text x="517" y="72" fill="#fff" font-size="13" text-anchor="middle" font-weight="bold">Filtro 2 (Med.)</text>
-        <text x="517" y="95" fill="#fcd34d" font-size="12" text-anchor="middle">θ₂ = {theta2}°</text>
+        <text x="517" y="95" fill="#fcd34d" font-size="12" text-anchor="middle">θ₂ = {st.session_state.theta2}°</text>
 
         <line x1="580" y1="68" x2="725" y2="38" stroke="#00CC96" stroke-width="{w_mais:.1f}"/>
         <text x="652" y="38" fill="#00CC96" font-size="12" text-anchor="middle" font-weight="bold">+ ({n_final_mais})</text>
@@ -325,7 +325,7 @@ def desenhar_bancada():
 
         <rect x="125" y="42" width="108" height="76" rx="8" fill="#1e293b" stroke="#60a5fa" stroke-width="2"/>
         <text x="179" y="72" fill="#fff" font-size="13" text-anchor="middle" font-weight="bold">Filtro 1</text>
-        <text x="179" y="94" fill="#93c5fd" font-size="12" text-anchor="middle">θ₁={theta1}° ({feixe1})</text>
+        <text x="179" y="94" fill="#93c5fd" font-size="12" text-anchor="middle">θ₁={st.session_state.theta1}° ({st.session_state.feixe1})</text>
 
         <line x1="233" y1="68" x2="328" y2="68" stroke="#38bdf8" stroke-width="{w_f1:.1f}"/>
         <text x="280" y="56" fill="#38bdf8" font-size="11" text-anchor="middle" font-weight="bold">{n_ent_2} passam</text>
@@ -336,7 +336,7 @@ def desenhar_bancada():
 
         <rect x="328" y="42" width="108" height="76" rx="8" fill="#1e293b" stroke="#a78bfa" stroke-width="2"/>
         <text x="382" y="72" fill="#fff" font-size="13" text-anchor="middle" font-weight="bold">Filtro 2</text>
-        <text x="382" y="94" fill="#c4b5fd" font-size="12" text-anchor="middle">θ₂={theta2}° ({feixe2})</text>
+        <text x="382" y="94" fill="#c4b5fd" font-size="12" text-anchor="middle">θ₂={st.session_state.theta2}° ({st.session_state.feixe2})</text>
 
         <line x1="436" y1="68" x2="545" y2="68" stroke="#a78bfa" stroke-width="{w_mid:.1f}"/>
         <text x="490" y="56" fill="#c4b5fd" font-size="11" text-anchor="middle" font-weight="bold">{n_entrada_final} passam</text>
@@ -347,7 +347,7 @@ def desenhar_bancada():
 
         <rect x="545" y="42" width="108" height="76" rx="8" fill="#1e293b" stroke="#f59e0b" stroke-width="2.5"/>
         <text x="599" y="72" fill="#fff" font-size="13" text-anchor="middle" font-weight="bold">Filtro 3</text>
-        <text x="599" y="94" fill="#fcd34d" font-size="12" text-anchor="middle">θ₃={theta3}°</text>
+        <text x="599" y="94" fill="#fcd34d" font-size="12" text-anchor="middle">θ₃={st.session_state.theta3}°</text>
 
         <line x1="653" y1="68" x2="765" y2="38" stroke="#00CC96" stroke-width="{w_mais:.1f}"/>
         <text x="710" y="38" fill="#00CC96" font-size="12" text-anchor="middle" font-weight="bold">+ ({n_final_mais})</text>
@@ -470,7 +470,11 @@ def exibir_explicacao_quantica():
             "**Bloqueio total no Filtro 2:** Nenhuma partícula alcançou o Filtro 3 porque o canal selecionado em F2 "
             "corresponde a um autoestado ortogonal ao estado preparado em F1."
         )
-    elif modo == "3. Colapso de Estado (3 Filtros)" and theta1 == theta3 and abs(theta2 - theta1) == 90:
+    elif (
+        modo == "3. Colapso de Estado (3 Filtros)"
+        and st.session_state.theta1 == st.session_state.theta3
+        and abs(st.session_state.theta2 - st.session_state.theta1) == 90
+    ):
         st.success(
             "**Reaparição por medição intermediária ($z \\to x \\to z$):** Como $[\\hat{S}_z, \\hat{S}_x] \\neq 0$, "
             "a seleção em $90^\\circ$ no Filtro 2 projeta o sistema em uma superposição de $|+z\\rangle$ e $|-z\\rangle$, restaurando a probabilidade de $50\\%$ para a componente anteriormente bloqueada."
@@ -490,6 +494,110 @@ def exibir_explicacao_quantica():
             f"**Projeção oblíqua ($\\Delta\\theta = {delta_theta:.0f}^\\circ$):** A probabilidade condicional segue "
             f"$P_+ = \\cos^2({delta_theta:.0f}^\\circ / 2) = {p_final_mais:.3f}$."
         )
+
+
+def rotulo_eixo(theta: float) -> str:
+    if theta == 0:
+        return "z"
+    if theta == 90:
+        return "x"
+    return rf"\hat{{n}}({theta:.0f}^\circ)"
+
+
+def expansao_dirac(theta: float, sinal: str = "+") -> str:
+    """Retorna a expansão em notação de Dirac na base {|+z>, |-z>}."""
+    if theta == 0:
+        return r"|+z\rangle" if sinal == "+" else r"|-z\rangle"
+    if theta == 90:
+        op = "+" if sinal == "+" else "-"
+        return rf"\frac{{1}}{{\sqrt{{2}}}}\left(|+z\rangle {op} |-z\rangle\right)"
+    if theta == 180:
+        return r"|-z\rangle" if sinal == "+" else r"-|+z\rangle"
+
+    v_mais, v_menos = auto_spin(theta)
+    v = v_mais if sinal == "+" else v_menos
+    c0, c1 = v[0].real + 0.0, v[1].real + 0.0
+    sinal_c1 = "+" if c1 >= 0 else "-"
+    return rf"{c0:.3f}|+z\rangle {sinal_c1} {abs(c1):.3f}|-z\rangle"
+
+
+def renderizar_analise_teorica_configuracao():
+    """Exibe o desenvolvimento matemático dinâmico sincronizado com a bancada."""
+    with st.expander("📐 Desenvolvimento Matemático da Configuração Atual", expanded=True):
+        eixo_f = rotulo_eixo(theta_anteparo)
+
+        if modo_id == 1:
+            t1 = st.session_state.theta1
+            st.markdown(f"**1. Estado de entrada (fonte não polarizada) e 2–3. Operador medido ($\\theta_1 = {t1}^\\circ$):**")
+            st.latex(
+                rf"\hat{{\rho}} = \frac{{\hat{{I}}}}{{2}} = \frac{{1}}{{2}}\left(|+z\rangle\langle +z| + |-z\rangle\langle -z|\right), "
+                rf"\qquad \hat{{S}}_{{{eixo_f}}} = \frac{{\hbar}}{{2}}|+{eixo_f}\rangle\langle +{eixo_f}| - \frac{{\hbar}}{{2}}|-{eixo_f}\rangle\langle -{eixo_f}|"
+            )
+            st.markdown("**4. Autoestados da base de medição:**")
+            st.latex(
+                rf"|+{eixo_f}\rangle = {expansao_dirac(t1, '+')}, \qquad "
+                rf"|-{eixo_f}\rangle = {expansao_dirac(t1, '-')}"
+            )
+            st.markdown("**5–6. Probabilidades teóricas via matriz densidade:**")
+            st.latex(
+                rf"P(+{eixo_f}) = \operatorname{{Tr}}(\hat{{\rho}}\hat{{P}}_+) = \frac{{1}}{{2}} = 0.500, \qquad "
+                rf"P(-{eixo_f}) = \operatorname{{Tr}}(\hat{{\rho}}\hat{{P}}_-) = \frac{{1}}{{2}} = 0.500"
+            )
+            st.markdown(
+                f"**7. Estado após a medição:** cada átomo detectado no canal $(+)$ ou $(-)$ colapsa para "
+                f"$|+{eixo_f}\\rangle$ ou $|-{eixo_f}\\rangle$, respectivamente."
+            )
+
+        else:
+            theta_in = st.session_state.theta1 if modo_id == 2 else st.session_state.theta2
+            feixe_in = st.session_state.feixe1 if modo_id == 2 else st.session_state.feixe2
+            eixo_in = rotulo_eixo(theta_in)
+            ket_in = rf"|{feixe_in}{eixo_in}\rangle"
+
+            mais_f, menos_f = auto_spin(theta_anteparo)
+            amp_mais = complex(np.vdot(mais_f, estado_entrada)).real + 0.0
+            amp_menos = complex(np.vdot(menos_f, estado_entrada)).real + 0.0
+
+            st.markdown(f"**1. Estado de entrada no {nome_final}:**")
+            st.latex(rf"|\psi_{{\mathrm{{in}}}}\rangle = {ket_in} = {expansao_dirac(theta_in, feixe_in)}")
+
+            st.markdown(f"**2–4. Base de medição, operador $\\hat{{S}}_{{{eixo_f}}}$ e autoestados ($\\theta = {theta_anteparo}^\\circ$):**")
+            st.latex(
+                rf"|+{eixo_f}\rangle = {expansao_dirac(theta_anteparo, '+')}, \qquad "
+                rf"|-{eixo_f}\rangle = {expansao_dirac(theta_anteparo, '-')}"
+            )
+
+            st.markdown("**5. Amplitudes de probabilidade (produto interno):**")
+            st.latex(
+                rf"\langle +{eixo_f}|\psi_{{\mathrm{{in}}}}\rangle = {amp_mais:.3f}, \qquad "
+                rf"\langle -{eixo_f}|\psi_{{\mathrm{{in}}}}\rangle = {amp_menos:.3f}"
+            )
+
+            st.markdown("**6. Probabilidades teóricas (Regra de Born e Regra da Cadeia):**")
+            st.latex(
+                rf"P(+{eixo_f} | \psi_{{\mathrm{{in}}}}) = |\langle +{eixo_f}|\psi_{{\mathrm{{in}}}}\rangle|^2 = \cos^2\!\left(\frac{{{delta_theta:.0f}^\circ}}{{2}}\right) = {p_final_mais:.3f}, \qquad "
+                rf"P(-{eixo_f} | \psi_{{\mathrm{{in}}}}) = \sin^2\!\left(\frac{{{delta_theta:.0f}^\circ}}{{2}}\right) = {p_final_menos:.3f}"
+            )
+            st.latex(
+                rf"P_{{\mathrm{{total}}(+)}} = {p_total_mais:.3f} \;({p_total_mais*100:.1f}\%), \qquad "
+                rf"P_{{\mathrm{{total}}(-)}} = {p_total_menos:.3f} \;({p_total_menos*100:.1f}\%)"
+            )
+
+            st.markdown("**7. Atualização do estado pós-medição (projetores $\\hat{P}_\\pm$):**")
+            st.latex(
+                rf"|\psi'\rangle = \frac{{\hat{{P}}_\pm |\psi_{{\mathrm{{in}}}}\rangle}}{{\sqrt{{\langle\psi_{{\mathrm{{in}}}}|\hat{{P}}_\pm|\psi_{{\mathrm{{in}}}}\rangle}}}} = |\pm {eixo_f}\rangle"
+            )
+
+        st.markdown("**8. Comparação com a realização estatística atual:**")
+        if n_entrada_final > 0:
+            st.markdown(
+                f"- **Canal $(+)$:** observado $f_+ = {pct_mais:.1f}\\%$ ($N_+ = {n_final_mais}/{n_entrada_final}$) vs. teórico $P_+ = {p_final_mais*100:.1f}\\%$ "
+                f"| desvio $= {desvio_mais*100:+.1f}\\%$ | incerteza esperada $\\sigma_f = \\pm{sigma_f*100:.2f}\\%$.\n"
+                f"- **Canal $(-)$:** observado $f_- = {pct_menos:.1f}\\%$ ($N_- = {n_final_menos}/{n_entrada_final}$) vs. teórico $P_- = {p_final_menos*100:.1f}\\%$ "
+                f"| desvio $= {desvio_menos*100:+.1f}\\%$."
+            )
+        else:
+            st.markdown("Nenhuma partícula atingiu o analisador final ($N_{\\mathrm{entrada}} = 0$); não há amostra estatística para comparação.")
 
 
 def renderizar_formalismo_teorico():
@@ -685,6 +793,9 @@ with aba_exp:
             st.plotly_chart(grafico_barras(), use_container_width=True)
             exibir_explicacao_quantica()
 
+    st.divider()
+    renderizar_analise_teorica_configuracao()
+
 # --- ABA 2: APARATO FÍSICO (GIF + DIAGRAMAS 3D) ---
 with aba_aparato:
     pasta_app = Path(__file__).parent
@@ -706,10 +817,10 @@ with aba_aparato:
             """)
 
     elif modo == "2. Projeção (2 Filtros)":
-        if theta1 == theta2:
+        if st.session_state.theta1 == st.session_state.theta2:
             nome_img = "f2_alinhado.png"
             legenda = "Analisadores alinhados (B₁ ∥ B₂): o estado preparado em F1 é autoestado de F2 e não sofre nova divisão."
-        elif abs(theta2 - 90) <= 15:
+        elif abs(st.session_state.theta2 - 90) <= 15:
             nome_img = "f2_horizontal_x.png"
             legenda = "Segundo analisador orientado em x̂ (90°): o feixe divide-se simetricamente em dois canais horizontais."
         else:
@@ -743,14 +854,15 @@ with aba_alg:
     st.divider()
 
     if modo == "1. Quantização (1 Filtro)":
+        t1 = st.session_state.theta1
         st.subheader("Cálculo para a Configuração Atual (1 Filtro)")
         st.write(
-            f"Com $\\theta_1 = {theta1}^\\circ$, a fonte não polarizada ($\\hat{{\\rho}} = \\hat{{I}}/2$) fornece "
+            f"Com $\\theta_1 = {t1}^\\circ$, a fonte não polarizada ($\\hat{{\\rho}} = \\hat{{I}}/2$) fornece "
             f"$P(+\\hat{{n}}_1) = \\operatorname{{Tr}}(\\hat{{\\rho}}\\hat{{P}}_+) = 0.500$ e "
             f"$P(-\\hat{{n}}_1) = \\operatorname{{Tr}}(\\hat{{\\rho}}\\hat{{P}}_-) = 0.500$. "
             "Na base de $\\hat{S}_z$, os autoestados do analisador são:"
         )
-        m1_v, m2_v = auto_spin(theta1)
+        m1_v, m2_v = auto_spin(t1)
         st.latex(
             rf"|+\hat{{n}}_1\rangle = \begin{{pmatrix}} {m1_v[0].real+0.0:.3f} \\ {m1_v[1].real+0.0:.3f} \end{{pmatrix}}, \qquad "
             rf"|-\hat{{n}}_1\rangle = \begin{{pmatrix}} {m2_v[0].real+0.0:.3f} \\ {m2_v[1].real+0.0:.3f} \end{{pmatrix}}"
@@ -760,19 +872,19 @@ with aba_alg:
 
         with col_dirac:
             st.subheader("Cálculo para a Configuração Atual")
-            st.write(f"**1. Estado preparado pelo Filtro 1 ({feixe1}, {theta1}°) — $P(a) = {p_passou_f1:.3f}$:**")
+            st.write(f"**1. Estado preparado pelo Filtro 1 ({st.session_state.feixe1}, {st.session_state.theta1}°) — $P(a) = {p_passou_f1:.3f}$:**")
             st.latex(
                 rf"|\chi_1\rangle = \begin{{pmatrix}} {estado1[0].real + 0.0:.3f} \\ {estado1[1].real + 0.0:.3f} \end{{pmatrix}}"
             )
 
             if modo == "3. Colapso de Estado (3 Filtros)":
-                st.write(f"**2. Projeção no Filtro 2 ({feixe2}, {theta2}°):**")
+                st.write(f"**2. Projeção no Filtro 2 ({st.session_state.feixe2}, {st.session_state.theta2}°):**")
                 st.latex(
-                    rf"P(b|a) = |\langle {feixe2}\hat{{n}}_2 | \chi_1 \rangle|^2 = {p_passou_f2:.3f} "
+                    rf"P(b|a) = |\langle {st.session_state.feixe2}\hat{{n}}_2 | \chi_1 \rangle|^2 = {p_passou_f2:.3f} "
                     rf"\quad \Longrightarrow \quad "
                     rf"|\chi_2\rangle = \begin{{pmatrix}} {estado2[0].real + 0.0:.3f} \\ {estado2[1].real + 0.0:.3f} \end{{pmatrix}}"
                 )
-                st.write(f"**3. Probabilidades condicionais no Filtro 3 ({theta3}°):**")
+                st.write(f"**3. Probabilidades condicionais no Filtro 3 ({st.session_state.theta3}°):**")
                 st.latex(
                     rf"P(+|b) = |\langle +\hat{{n}}_3 | \chi_2 \rangle|^2 = {p_final_mais:.3f} "
                     rf"\qquad "
@@ -785,7 +897,7 @@ with aba_alg:
                     rf"P_{{\text{{total}}(-)}} = P(a)\,P(b|a)\,P(-|b) = {p_total_menos:.3f}"
                 )
             else:
-                st.write(f"**2. Probabilidades condicionais no Filtro 2 ({theta2}°):**")
+                st.write(f"**2. Probabilidades condicionais no Filtro 2 ({st.session_state.theta2}°):**")
                 st.latex(
                     rf"P(+|a) = |\langle +\hat{{n}}_2 | \chi_1 \rangle|^2 = {p_final_mais:.3f} "
                     rf"\qquad "
