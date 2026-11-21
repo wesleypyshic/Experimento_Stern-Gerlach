@@ -7,6 +7,50 @@ from S_G import auto_spin, P, simular_filtro
 
 st.set_page_config(page_title="Laboratório Stern-Gerlach", page_icon="🧲", layout="wide")
 
+st.markdown(
+    """
+    <style>
+    @media (max-width: 768px) {
+        /* Reduz margens laterais para ganhar espaço útil */
+        .block-container {
+            padding-left: 0.8rem !important;
+            padding-right: 0.8rem !important;
+            padding-top: 1.5rem !important;
+        }
+        /* Diminui o título principal e subtítulos */
+        h1 { font-size: 1.5rem !important; }
+        h2, h3 { font-size: 1.15rem !important; }
+
+        /* Evita que as abas se sobreponham */
+        .stTabs [data-baseweb="tab-list"] {
+            gap: 0.4rem !important;
+            flex-wrap: wrap !important;
+        }
+        .stTabs [data-baseweb="tab"] {
+            font-size: 0.8rem !important;
+            padding: 0.35rem 0.5rem !important;
+        }
+
+        /* Ajusta o tamanho das métricas (Saída + / Saída -) */
+        [data-testid="stMetricValue"] {
+            font-size: 1.3rem !important;
+        }
+        [data-testid="stMetricLabel"] {
+            font-size: 0.8rem !important;
+        }
+
+        /* Permite rolar equações LaTeX largas para o lado em vez de encavalar */
+        .katex-display {
+            overflow-x: auto !important;
+            overflow-y: hidden !important;
+            padding-bottom: 4px;
+        }
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 # --- Estado inicial ---
 defaults = {
     "modo": "1. Quantização (1 Filtro)",
