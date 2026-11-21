@@ -3,7 +3,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 import numpy as np
 import plotly.graph_objects as go
-from S_G import auto_spin, P, simular_filtro
+from S_G import auto_spin, P, simular_filtro, simular_experimento
 
 st.set_page_config(page_title="Laboratório Stern-Gerlach", page_icon="🧲", layout="wide")
 
@@ -70,6 +70,7 @@ for k, v in defaults.items():
     if k not in st.session_state:
         st.session_state[k] = v
 
+
 def carregar_cenario(modo, t1=0, f1="+", t2=90, f2="+", t3=0, n=1000):
     st.session_state.modo = modo
     st.session_state.theta1 = t1
@@ -78,6 +79,7 @@ def carregar_cenario(modo, t1=0, f1="+", t2=90, f2="+", t3=0, n=1000):
     st.session_state.feixe2 = f2
     st.session_state.theta3 = t3
     st.session_state.n_atomos = n
+
 
 # --- Cabeçalho ---
 col_tit, col_btn = st.columns([4, 1])
@@ -102,7 +104,7 @@ modo = st.sidebar.radio(
 
 st.sidebar.divider()
 st.sidebar.header("2. Ajustes da Bancada")
-n_atomos = st.sidebar.slider("Átomos emitidos (N)", 20, 5000, step=20, key="n_atomos")
+n_atomos = st.sidebar.slider("Átomos emitidos pela fonte (N₀)", 20, 5000, step=20, key="n_atomos")
 
 if modo == "1. Quantização (1 Filtro)":
     theta1 = st.sidebar.slider("Ângulo do Ímã 1 (°)", 0, 180, key="theta1")
@@ -125,7 +127,7 @@ else:
     theta3 = st.sidebar.slider("Ângulo do Filtro 3 (°)", 0, 180, key="theta3")
 
 st.sidebar.divider()
-st.sidebar.caption("💡 Dica: reduza N para 40 átomos e clique em 'Novo disparo' para observar o ruído estatístico quântico.")
+st.sidebar.caption("💡 Dica: reduza N₀ para 40 átomos e clique em 'Novo disparo' para observar o ruído estatístico quântico.")
 
 st.sidebar.divider()
 st.sidebar.markdown(
@@ -140,48 +142,45 @@ st.sidebar.markdown(
     unsafe_allow_html=True,
 )
 
-# --- Motor Físico (usando o seu S_G.py) ---
-if modo == "1. Quantização (1 Filtro)":
-    p_final_mais, p_final_menos = 0.5, 0.5
-    n_entrada_final = n_atomos
-    n_final_mais, n_final_menos = simular_filtro(n_atomos, 0.5)
-    theta_anteparo = theta1
-    nome_final = "Filtro 1"
+# --- Motor Físico (usando o núcleo validado em S_G.py) ---
+modo_id = 1 if modo.startswith("1.") else (2 if modo.startswith("2.") else 3)
 
-elif modo == "2. Projeção (2 Filtros)":
-    mais1, menos1 = auto_spin(theta1)
-    estado1 = mais1 if feixe1 == "+" else menos1
-    p_final_mais, p_final_menos = P(estado1, theta2)
-    n_entrada_final = n_atomos
-    n_final_mais, n_final_menos = simular_filtro(n_atomos, p_final_mais)
-    theta_anteparo = theta2
-    estado_entrada = estado1
-    nome_final = "Filtro 2"
-    delta_theta = abs(theta2 - theta1) if feixe1 == "+" else 180 - abs(theta2 - theta1)
+sim = simular_experimento(
+    n0=n_atomos,
+    modo_id=modo_id,
+    theta1=st.session_state.theta1,
+    feixe1=st.session_state.feixe1,
+    theta2=st.session_state.theta2,
+    feixe2=st.session_state.feixe2,
+    theta3=st.session_state.theta3,
+)
 
-else:
-    mais1, menos1 = auto_spin(theta1)
-    estado1 = mais1 if feixe1 == "+" else menos1
-    p2_mais, p2_menos = P(estado1, theta2)
-    n2_mais, n2_menos = simular_filtro(n_atomos, p2_mais)
+p_final_mais = sim["p_final_mais"]
+p_final_menos = sim["p_final_menos"]
+p_total_mais = sim["p_total_mais"]
+p_total_menos = sim["p_total_menos"]
+n_entrada_final = sim["n_entrada_final"]
+n_final_mais = sim["n_final_mais"]
+n_final_menos = sim["n_final_menos"]
+theta_anteparo = sim["theta_anteparo"]
+nome_final = sim["nome_final"]
+estado1 = sim["estado1"]
+estado_entrada = sim["estado_entrada"]
+delta_theta = sim["delta_theta"]
+sigma_f = sim["sigma_f"]
 
-    mais2, menos2 = auto_spin(theta2)
-    if feixe2 == "+":
-        estado2 = mais2
-        n_entrada_final, n_bloq_f2, p_passou_f2 = n2_mais, n2_menos, p2_mais
-    else:
-        estado2 = menos2
-        n_entrada_final, n_bloq_f2, p_passou_f2 = n2_menos, n2_mais, p2_menos
+if modo_id >= 2:
+    n_ent_2 = sim["n_ent_2"]
+    n_bloq_f1 = sim["n_bloq_1"]
+    p_passou_f1 = sim["p1_sel"]
+if modo_id == 3:
+    estado2 = sim["estado2"]
+    n_bloq_f2 = sim["n_bloq_2"]
+    p_passou_f2 = sim["p2_sel"]
 
-    p_final_mais, p_final_menos = P(estado2, theta3)
-    n_final_mais, n_final_menos = simular_filtro(n_entrada_final, p_final_mais)
-    theta_anteparo = theta3
-    estado_entrada = estado2
-    nome_final = "Filtro 3"
-    delta_theta = abs(theta3 - theta2) if feixe2 == "+" else 180 - abs(theta3 - theta2)
+pct_mais = sim["f_mais"] * 100
+pct_menos = sim["f_menos"] * 100
 
-pct_mais = (n_final_mais / n_entrada_final * 100) if n_entrada_final > 0 else 0.0
-pct_menos = (n_final_menos / n_entrada_final * 100) if n_entrada_final > 0 else 0.0
 
 # --- Função para desenhar a bancada (SVG compacto via components.html) ---
 def desenhar_bancada():
@@ -195,7 +194,7 @@ def desenhar_bancada():
         <text x="135" y="95" fill="#fca5a5" font-size="11" text-anchor="middle">Não polarizado</text>
 
         <line x1="180" y1="80" x2="320" y2="80" stroke="#94a3b8" stroke-width="4" stroke-dasharray="6,4"/>
-        <text x="250" y="68" fill="#cbd5e1" font-size="12" text-anchor="middle">{n_atomos} átomos</text>
+        <text x="250" y="68" fill="#cbd5e1" font-size="12" text-anchor="middle">N₀ = {n_atomos}</text>
 
         <rect x="320" y="40" width="140" height="80" rx="10" fill="#1e293b" stroke="#f59e0b" stroke-width="2.5"/>
         <text x="390" y="72" fill="#fff" font-size="14" text-anchor="middle" font-weight="bold">Ímã SG (Filtro 1)</text>
@@ -211,18 +210,24 @@ def desenhar_bancada():
         <text x="725" y="84" fill="#e2e8f0" font-size="13" text-anchor="middle" font-weight="bold">Anteparo</text>
         """
     elif modo == "2. Projeção (2 Filtros)":
+        w_f1 = max(1.5, (n_ent_2 / max(1, n_atomos)) * 6.5)
         corpo = f"""
-        <rect x="45" y="55" width="82" height="50" rx="8" fill="#3a2323" stroke="#EF553B" stroke-width="2"/>
-        <text x="86" y="84" fill="#fff" font-size="13" text-anchor="middle" font-weight="bold">Forno</text>
+        <rect x="35" y="55" width="82" height="50" rx="8" fill="#3a2323" stroke="#EF553B" stroke-width="2"/>
+        <text x="76" y="84" fill="#fff" font-size="13" text-anchor="middle" font-weight="bold">Forno</text>
 
-        <line x1="127" y1="80" x2="195" y2="80" stroke="#94a3b8" stroke-width="3" stroke-dasharray="5,4"/>
+        <line x1="117" y1="80" x2="195" y2="80" stroke="#94a3b8" stroke-width="3.5" stroke-dasharray="5,4"/>
+        <text x="156" y="68" fill="#cbd5e1" font-size="11" text-anchor="middle">N₀={n_atomos}</text>
 
         <rect x="195" y="40" width="125" height="80" rx="10" fill="#1e293b" stroke="#60a5fa" stroke-width="2"/>
         <text x="257" y="72" fill="#fff" font-size="13" text-anchor="middle" font-weight="bold">Filtro 1 (Prep.)</text>
         <text x="257" y="95" fill="#93c5fd" font-size="12" text-anchor="middle">θ₁ = {theta1}° | só ({feixe1})</text>
 
-        <line x1="320" y1="80" x2="455" y2="80" stroke="#38bdf8" stroke-width="4.5"/>
-        <text x="387" y="68" fill="#38bdf8" font-size="12" text-anchor="middle" font-weight="bold">{n_atomos} em |χ₁⟩</text>
+        <line x1="320" y1="68" x2="455" y2="68" stroke="#38bdf8" stroke-width="{w_f1:.1f}"/>
+        <text x="387" y="56" fill="#38bdf8" font-size="12" text-anchor="middle" font-weight="bold">{n_ent_2} em |χ₁⟩</text>
+
+        <line x1="320" y1="95" x2="370" y2="128" stroke="#EF553B" stroke-width="2" stroke-dasharray="4,3"/>
+        <rect x="370" y="118" width="8" height="22" rx="2" fill="#EF553B"/>
+        <text x="385" y="134" fill="#fca5a5" font-size="11">{n_bloq_f1} bloq.</text>
 
         <rect x="455" y="40" width="125" height="80" rx="10" fill="#1e293b" stroke="#f59e0b" stroke-width="2.5"/>
         <text x="517" y="72" fill="#fff" font-size="13" text-anchor="middle" font-weight="bold">Filtro 2 (Med.)</text>
@@ -238,40 +243,46 @@ def desenhar_bancada():
         <text x="790" y="84" fill="#e2e8f0" font-size="13" text-anchor="middle" font-weight="bold">Anteparo</text>
         """
     else:
+        w_f1 = max(1.5, (n_ent_2 / max(1, n_atomos)) * 6)
         w_mid = max(1.5, (n_entrada_final / max(1, n_atomos)) * 6)
         corpo = f"""
-        <rect x="12" y="55" width="68" height="50" rx="8" fill="#3a2323" stroke="#EF553B" stroke-width="2"/>
-        <text x="46" y="84" fill="#fff" font-size="12" text-anchor="middle" font-weight="bold">Forno</text>
+        <rect x="10" y="55" width="60" height="50" rx="8" fill="#3a2323" stroke="#EF553B" stroke-width="2"/>
+        <text x="40" y="84" fill="#fff" font-size="12" text-anchor="middle" font-weight="bold">Forno</text>
 
-        <line x1="80" y1="80" x2="125" y2="80" stroke="#94a3b8" stroke-width="3" stroke-dasharray="4,3"/>
+        <line x1="70" y1="80" x2="125" y2="80" stroke="#94a3b8" stroke-width="3" stroke-dasharray="4,3"/>
+        <text x="97" y="68" fill="#cbd5e1" font-size="10" text-anchor="middle">N₀={n_atomos}</text>
 
-        <rect x="125" y="42" width="110" height="76" rx="8" fill="#1e293b" stroke="#60a5fa" stroke-width="2"/>
-        <text x="180" y="72" fill="#fff" font-size="13" text-anchor="middle" font-weight="bold">Filtro 1</text>
-        <text x="180" y="94" fill="#93c5fd" font-size="12" text-anchor="middle">θ₁={theta1}° ({feixe1})</text>
+        <rect x="125" y="42" width="108" height="76" rx="8" fill="#1e293b" stroke="#60a5fa" stroke-width="2"/>
+        <text x="179" y="72" fill="#fff" font-size="13" text-anchor="middle" font-weight="bold">Filtro 1</text>
+        <text x="179" y="94" fill="#93c5fd" font-size="12" text-anchor="middle">θ₁={theta1}° ({feixe1})</text>
 
-        <line x1="235" y1="80" x2="325" y2="80" stroke="#38bdf8" stroke-width="4.5"/>
-        <text x="280" y="68" fill="#38bdf8" font-size="11" text-anchor="middle">{n_atomos} át.</text>
+        <line x1="233" y1="68" x2="328" y2="68" stroke="#38bdf8" stroke-width="{w_f1:.1f}"/>
+        <text x="280" y="56" fill="#38bdf8" font-size="11" text-anchor="middle" font-weight="bold">{n_ent_2} passam</text>
 
-        <rect x="325" y="42" width="110" height="76" rx="8" fill="#1e293b" stroke="#a78bfa" stroke-width="2"/>
-        <text x="380" y="72" fill="#fff" font-size="13" text-anchor="middle" font-weight="bold">Filtro 2</text>
-        <text x="380" y="94" fill="#c4b5fd" font-size="12" text-anchor="middle">θ₂={theta2}° ({feixe2})</text>
+        <line x1="233" y1="95" x2="268" y2="128" stroke="#EF553B" stroke-width="2" stroke-dasharray="4,3"/>
+        <rect x="268" y="118" width="7" height="20" rx="2" fill="#EF553B"/>
+        <text x="280" y="133" fill="#fca5a5" font-size="10">{n_bloq_f1} bloq.</text>
 
-        <line x1="435" y1="68" x2="545" y2="68" stroke="#a78bfa" stroke-width="{w_mid:.1f}"/>
+        <rect x="328" y="42" width="108" height="76" rx="8" fill="#1e293b" stroke="#a78bfa" stroke-width="2"/>
+        <text x="382" y="72" fill="#fff" font-size="13" text-anchor="middle" font-weight="bold">Filtro 2</text>
+        <text x="382" y="94" fill="#c4b5fd" font-size="12" text-anchor="middle">θ₂={theta2}° ({feixe2})</text>
+
+        <line x1="436" y1="68" x2="545" y2="68" stroke="#a78bfa" stroke-width="{w_mid:.1f}"/>
         <text x="490" y="56" fill="#c4b5fd" font-size="11" text-anchor="middle" font-weight="bold">{n_entrada_final} passam</text>
 
-        <line x1="435" y1="95" x2="485" y2="128" stroke="#EF553B" stroke-width="2" stroke-dasharray="4,3"/>
-        <rect x="485" y="118" width="8" height="22" rx="2" fill="#EF553B"/>
-        <text x="500" y="134" fill="#fca5a5" font-size="11">{n_bloq_f2} bloq.</text>
+        <line x1="436" y1="95" x2="482" y2="128" stroke="#EF553B" stroke-width="2" stroke-dasharray="4,3"/>
+        <rect x="482" y="118" width="7" height="20" rx="2" fill="#EF553B"/>
+        <text x="495" y="133" fill="#fca5a5" font-size="10">{n_bloq_f2} bloq.</text>
 
-        <rect x="545" y="42" width="110" height="76" rx="8" fill="#1e293b" stroke="#f59e0b" stroke-width="2.5"/>
-        <text x="600" y="72" fill="#fff" font-size="13" text-anchor="middle" font-weight="bold">Filtro 3</text>
-        <text x="600" y="94" fill="#fcd34d" font-size="12" text-anchor="middle">θ₃={theta3}°</text>
+        <rect x="545" y="42" width="108" height="76" rx="8" fill="#1e293b" stroke="#f59e0b" stroke-width="2.5"/>
+        <text x="599" y="72" fill="#fff" font-size="13" text-anchor="middle" font-weight="bold">Filtro 3</text>
+        <text x="599" y="94" fill="#fcd34d" font-size="12" text-anchor="middle">θ₃={theta3}°</text>
 
-        <line x1="655" y1="68" x2="765" y2="38" stroke="#00CC96" stroke-width="{w_mais:.1f}"/>
-        <text x="712" y="38" fill="#00CC96" font-size="12" text-anchor="middle" font-weight="bold">+ ({n_final_mais})</text>
+        <line x1="653" y1="68" x2="765" y2="38" stroke="#00CC96" stroke-width="{w_mais:.1f}"/>
+        <text x="710" y="38" fill="#00CC96" font-size="12" text-anchor="middle" font-weight="bold">+ ({n_final_mais})</text>
 
-        <line x1="655" y1="92" x2="765" y2="122" stroke="#EF553B" stroke-width="{w_menos:.1f}"/>
-        <text x="712" y="136" fill="#EF553B" font-size="12" text-anchor="middle" font-weight="bold">- ({n_final_menos})</text>
+        <line x1="653" y1="92" x2="765" y2="122" stroke="#EF553B" stroke-width="{w_menos:.1f}"/>
+        <text x="710" y="136" fill="#EF553B" font-size="12" text-anchor="middle" font-weight="bold">- ({n_final_menos})</text>
 
         <rect x="768" y="20" width="14" height="120" rx="4" fill="#e2e8f0"/>
         <text x="818" y="84" fill="#e2e8f0" font-size="12" text-anchor="middle" font-weight="bold">Tela</text>
@@ -285,6 +296,7 @@ def desenhar_bancada():
     </div>
     """
     components.html(html, height=164)
+
 
 # --- Funções para os Gráficos ---
 def grafico_quantico(altura=380):
@@ -321,6 +333,7 @@ def grafico_quantico(altura=380):
         plot_bgcolor="#12151e",
     )
     return fig
+
 
 def grafico_classico(altura=350):
     rad = np.radians(theta_anteparo)
@@ -359,6 +372,7 @@ def grafico_classico(altura=350):
     )
     return fig, texto_classico
 
+
 def grafico_barras():
     fig_bar = go.Figure(data=[
         go.Bar(
@@ -384,6 +398,7 @@ def grafico_barras():
         plot_bgcolor="rgba(0,0,0,0)",
     )
     return fig_bar
+
 
 def exibir_explicacao_quantica():
     if modo == "1. Quantização (1 Filtro)":
@@ -413,9 +428,10 @@ def exibir_explicacao_quantica():
         )
     else:
         st.info(
-            f"**Projeção oblíqua ($\\Delta\\theta = {delta_theta}^\\circ$):** A probabilidade segue "
-            f"$P_+ = \\cos^2({delta_theta}^\\circ / 2) = {p_final_mais:.3f}$."
+            f"**Projeção oblíqua ($\\Delta\\theta = {delta_theta:.0f}^\\circ$):** A probabilidade segue "
+            f"$P_+ = \\cos^2({delta_theta:.0f}^\\circ / 2) = {p_final_mais:.3f}$."
         )
+
 
 # ==========================================================
 # ABAS PRINCIPAIS
@@ -457,7 +473,7 @@ with aba_exp:
             st.metric("Saída (-) [-ℏ/2]", f"{n_final_menos} átomos", f"{pct_menos:.1f}%", delta_color="off")
         with col_b:
             st.plotly_chart(grafico_barras(), use_container_width=True)
-    
+
     else:
         col_tela, col_info = st.columns([1.15, 1])
 
@@ -465,9 +481,10 @@ with aba_exp:
             st.plotly_chart(grafico_quantico(altura=380), use_container_width=True)
 
         with col_info:
+            st.caption(f"Fluxo no {nome_final}: **N_entrada = {n_entrada_final}** de **N₀ = {n_atomos}** emitidos pela fonte (σ_f = {sigma_f*100:.2f}%).")
             c1, c2 = st.columns(2)
-            c1.metric("Saída (+) [+ℏ/2]", f"{n_final_mais} átomos", f"{pct_mais:.1f}%", delta_color="off")
-            c2.metric("Saída (-) [-ℏ/2]", f"{n_final_menos} átomos", f"{pct_menos:.1f}%", delta_color="off")
+            c1.metric("Saída (+) [+ℏ/2]", f"{n_final_mais} átomos", f"{pct_mais:.1f}% (teor. {p_final_mais*100:.1f}%)", delta_color="off")
+            c2.metric("Saída (-) [-ℏ/2]", f"{n_final_menos} átomos", f"{pct_menos:.1f}% (teor. {p_final_menos*100:.1f}%)", delta_color="off")
             st.plotly_chart(grafico_barras(), use_container_width=True)
             exibir_explicacao_quantica()
 
@@ -486,9 +503,9 @@ with aba_aparato:
         with col_txt:
             st.subheader("Como funciona o aparelho real")
             st.markdown("""
-            1. **Fonte de átomos:** aquece átomos de prata, emitindo um feixe com spins em direções aleatórias.
-            2. **Campo magnético não uniforme (N–S):** o gradiente de campo entre os polos aplica uma força proporcional à componente do spin ao longo do eixo do ímã.
-            3. **Tela de detecção:** em vez de formar uma faixa contínua (previsão clássica), o feixe se divide em apenas **dois pontos discretos** ($+\\hbar/2$ e $-\\hbar/2$).
+1. **Fonte de átomos:** aquece átomos de prata, emitindo um feixe com spins em direções aleatórias.
+2. **Campo magnético não uniforme (N–S):** o gradiente de campo entre os polos aplica uma força proporcional à componente do spin ao longo do eixo do ímã.
+3. **Tela de detecção:** em vez de formar uma faixa contínua (previsão clássica), o feixe se divide em apenas **dois pontos discretos** ($+\\hbar/2$ e $-\\hbar/2$).
             """)
 
     elif modo == "2. Projeção (2 Filtros)":
@@ -528,14 +545,14 @@ with aba_alg:
     if modo == "1. Quantização (1 Filtro)":
         st.subheader("Por que 50% / 50% em qualquer ângulo?")
         st.write(
-            "Os átomos saem do forno térmico com orientações de spin completamente aleatórias (uma **mistura estatística**, "
-            "não um estado puro). Ao atravessar o campo magnético não uniforme orientado em $\\hat{n}_1$, cada átomo colapsa "
-            "para um dos dois autoestados do operador de spin $\\hat{S}_{n_1} = \\vec{S} \\cdot \\hat{n}_1$:"
+            "Os átomos saem do forno térmico com orientações de spin completamente aleatórias (uma **mistura estatística** "
+            "descrita por $\\hat{\\rho} = \\hat{I}/2$, não um estado puro). Ao atravessar o campo magnético não uniforme "
+            "orientado em $\\hat{n}_1$, cada átomo colapsa para um dos dois autoestados do operador $\\hat{S}_{n_1} = \\vec{S} \\cdot \\hat{n}_1$:"
         )
         m1_v, m2_v = auto_spin(theta1)
         st.latex(
-            rf"|+\hat{{n}}_1\rangle = \begin{{pmatrix}} {m1_v[0]+0.0:.3f} \\ {m1_v[1]+0.0:.3f} \end{{pmatrix}}, \qquad "
-            rf"|-\hat{{n}}_1\rangle = \begin{{pmatrix}} {m2_v[0]+0.0:.3f} \\ {m2_v[1]+0.0:.3f} \end{{pmatrix}}"
+            rf"|+\hat{{n}}_1\rangle = \begin{{pmatrix}} {m1_v[0].real+0.0:.3f} \\ {m1_v[1].real+0.0:.3f} \end{{pmatrix}}, \qquad "
+            rf"|-\hat{{n}}_1\rangle = \begin{{pmatrix}} {m2_v[0].real+0.0:.3f} \\ {m2_v[1].real+0.0:.3f} \end{{pmatrix}}"
         )
         st.write("Passe para o modo **2. Projeção (2 Filtros)** ou **3. Colapso de Estado (3 Filtros)** na barra lateral para ver os cálculos de Dirac e a curva $\\cos^2(\\Delta\\theta/2)$.")
     else:
@@ -543,40 +560,47 @@ with aba_alg:
 
         with col_dirac:
             st.subheader("Formalismo de Dirac")
-            st.write(f"**1. Estado preparado pelo Filtro 1 ({feixe1}, {theta1}°):**")
+            st.write(f"**1. Estado preparado pelo Filtro 1 ({feixe1}, {theta1}°) — $P_1 = {p_passou_f1:.3f}$:**")
             st.latex(
-                rf"|\chi_1\rangle = \begin{{pmatrix}} {estado1[0] + 0.0:.3f} \\ {estado1[1] + 0.0:.3f} \end{{pmatrix}}"
+                rf"|\chi_1\rangle = \begin{{pmatrix}} {estado1[0].real + 0.0:.3f} \\ {estado1[1].real + 0.0:.3f} \end{{pmatrix}}"
             )
 
             if modo == "3. Colapso de Estado (3 Filtros)":
                 st.write(f"**2. Colapso no Filtro 2 ({feixe2}, {theta2}°):**")
                 st.latex(
-                    rf"P_2 = |\langle {feixe2}\hat{{n}}_2 | \chi_1 \rangle|^2 = {p_passou_f2:.3f} "
+                    rf"P(b|a) = |\langle {feixe2}\hat{{n}}_2 | \chi_1 \rangle|^2 = {p_passou_f2:.3f} "
                     rf"\quad \Longrightarrow \quad "
-                    rf"|\chi_2\rangle = \begin{{pmatrix}} {estado2[0] + 0.0:.3f} \\ {estado2[1] + 0.0:.3f} \end{{pmatrix}}"
+                    rf"|\chi_2\rangle = \begin{{pmatrix}} {estado2[0].real + 0.0:.3f} \\ {estado2[1].real + 0.0:.3f} \end{{pmatrix}}"
                 )
-                st.write(f"**3. Probabilidades no Filtro 3 ({theta3}°):**")
+                st.write(f"**3. Probabilidades condicionais no Filtro 3 ({theta3}°):**")
                 st.latex(
-                    rf"P_{{3+}} = |\langle +\hat{{n}}_3 | \chi_2 \rangle|^2 = {p_final_mais:.3f} "
+                    rf"P(+|b) = |\langle +\hat{{n}}_3 | \chi_2 \rangle|^2 = {p_final_mais:.3f} "
                     rf"\qquad "
-                    rf"P_{{3-}} = |\langle -\hat{{n}}_3 | \chi_2 \rangle|^2 = {p_final_menos:.3f}"
+                    rf"P(-|b) = |\langle -\hat{{n}}_3 | \chi_2 \rangle|^2 = {p_final_menos:.3f}"
                 )
+                st.write("**4. Probabilidades totais desde a fonte (Regra da Cadeia):**")
                 st.latex(
-                    rf"P_{{\text{{total}}(+)}} = P_2 \cdot P_{{3+}} = {p_passou_f2 * p_final_mais:.3f} "
+                    rf"P_{{\text{{total}}(+)}} = P(a)\,P(b|a)\,P(+|b) = {p_total_mais:.3f} "
                     rf"\qquad "
-                    rf"P_{{\text{{total}}(-)}} = P_2 \cdot P_{{3-}} = {p_passou_f2 * p_final_menos:.3f}"
+                    rf"P_{{\text{{total}}(-)}} = P(a)\,P(b|a)\,P(-|b) = {p_total_menos:.3f}"
                 )
             else:
-                st.write(f"**2. Probabilidades no Filtro 2 ({theta2}°):**")
+                st.write(f"**2. Probabilidades condicionais no Filtro 2 ({theta2}°):**")
                 st.latex(
-                    rf"P_+ = |\langle +\hat{{n}}_2 | \chi_1 \rangle|^2 = {p_final_mais:.3f} "
+                    rf"P(+|a) = |\langle +\hat{{n}}_2 | \chi_1 \rangle|^2 = {p_final_mais:.3f} "
                     rf"\qquad "
-                    rf"P_- = |\langle -\hat{{n}}_2 | \chi_1 \rangle|^2 = {p_final_menos:.3f}"
+                    rf"P(-|a) = |\langle -\hat{{n}}_2 | \chi_1 \rangle|^2 = {p_final_menos:.3f}"
+                )
+                st.write("**3. Probabilidades totais desde a fonte:**")
+                st.latex(
+                    rf"P_{{\text{{total}}(+)}} = P(a)\,P(+|a) = {p_total_mais:.3f} "
+                    rf"\qquad "
+                    rf"P_{{\text{{total}}(-)}} = P(a)\,P(-|a) = {p_total_menos:.3f}"
                 )
 
             mais_f, _ = auto_spin(theta_anteparo)
-            a0, a1 = mais_f[0] + 0.0, mais_f[1] + 0.0
-            b0, b1 = estado_entrada[0] + 0.0, estado_entrada[1] + 0.0
+            a0, a1 = mais_f[0].real + 0.0, mais_f[1].real + 0.0
+            b0, b1 = estado_entrada[0].real + 0.0, estado_entrada[1].real + 0.0
             amp = a0 * b0 + a1 * b1
 
             with st.expander("🔍 Abrir conta do produto interno passo a passo"):
@@ -685,6 +709,7 @@ with aba_guia:
                 "de $S_z$ e $S_x$ ao mesmo tempo. Medir $S_x$ no Filtro 2 colapsa o estado para $|+\\hat{x}\\rangle = \\frac{1}{\\sqrt{2}}(|+\\hat{z}\\rangle + |-\\hat{z}\\rangle)$, "
                 "fazendo a componente $|-\\hat{z}\\rangle$ reaparecer no Filtro 3."
             )
+
 st.divider()
 st.markdown(
     """
