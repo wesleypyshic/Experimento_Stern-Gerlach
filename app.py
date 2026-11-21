@@ -10,7 +10,11 @@ st.set_page_config(page_title="Laboratório Stern-Gerlach", page_icon="🧲", la
 st.markdown(
     """
     <style>
-    @media (max-width: 768px) {
+    @media (max-width: 768px) { 
+        /* Esconde a barra de ferramentas dos gráficos Plotly no celular */
+        .modebar-container, .modebar {
+            display: none !important;
+        }
         /* Reduz margens laterais para ganhar espaço útil */
         .block-container {
             padding-left: 0.8rem !important;
