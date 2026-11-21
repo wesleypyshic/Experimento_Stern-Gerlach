@@ -3,7 +3,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 import numpy as np
 import plotly.graph_objects as go
-from S_G import auto_spin, P, simular_filtro, simular_experimento
+from S_G import auto_spin, P, simular_experimento
 
 st.set_page_config(page_title="Laboratório Stern-Gerlach", page_icon="🧲", layout="wide")
 
@@ -11,21 +11,17 @@ st.markdown(
     """
     <style>
     @media (max-width: 768px) { 
-        /* Esconde a barra de ferramentas dos gráficos Plotly no celular */
         .modebar-container, .modebar {
             display: none !important;
         }
-        /* Reduz margens laterais para ganhar espaço útil */
         .block-container {
             padding-left: 0.8rem !important;
             padding-right: 0.8rem !important;
             padding-top: 1.5rem !important;
         }
-        /* Diminui o título principal e subtítulos */
         h1 { font-size: 1.5rem !important; }
         h2, h3 { font-size: 1.15rem !important; }
 
-        /* Evita que as abas se sobreponham */
         .stTabs [data-baseweb="tab-list"] {
             gap: 0.4rem !important;
             flex-wrap: wrap !important;
@@ -35,7 +31,6 @@ st.markdown(
             padding: 0.35rem 0.5rem !important;
         }
 
-        /* Ajusta o tamanho das métricas (Saída + / Saída -) */
         [data-testid="stMetricValue"] {
             font-size: 1.3rem !important;
         }
@@ -43,7 +38,6 @@ st.markdown(
             font-size: 0.8rem !important;
         }
 
-        /* Permite rolar equações LaTeX largas para o lado em vez de encavalar */
         .katex-display {
             overflow-x: auto !important;
             overflow-y: hidden !important;
@@ -65,10 +59,23 @@ defaults = {
     "feixe2": "+",
     "theta3": 0,
     "comparar_classico": True,
+    "usar_seed": False,
+    "seed_valor": 42,
+    "disparo_id": 0,
+    "sim_assinatura": None,
+    "sim_resultado": None,
+    "sim_coords": None,
 }
 for k, v in defaults.items():
     if k not in st.session_state:
         st.session_state[k] = v
+
+
+def acionar_novo_disparo():
+    if st.session_state.usar_seed:
+        st.session_state.seed_valor += 1
+    else:
+        st.session_state.disparo_id += 1
 
 
 def carregar_cenario(modo, t1=0, f1="+", t2=90, f2="+", t3=0, n=1000):
@@ -79,21 +86,27 @@ def carregar_cenario(modo, t1=0, f1="+", t2=90, f2="+", t3=0, n=1000):
     st.session_state.feixe2 = f2
     st.session_state.theta3 = t3
     st.session_state.n_atomos = n
+    st.session_state.disparo_id += 1
 
 
 # --- Cabeçalho ---
 col_tit, col_btn = st.columns([4, 1])
 with col_tit:
     st.title("🧲 Laboratório Virtual de Stern-Gerlach")
-    st.caption("Simulador interativo de quantização do spin, superposição e colapso de estado.")
+    st.caption("Simulação interativa de quantização do spin-1/2, preparação de estados e medição quântica.")
 with col_btn:
     st.write("")
-    st.button("🔄 Novo disparo", use_container_width=True, help="Repete o sorteio quântico com os mesmos ângulos")
+    st.button(
+        "🔄 Novo disparo",
+        on_click=acionar_novo_disparo,
+        use_container_width=True,
+        help="Executa uma nova realização estatística com os mesmos parâmetros físicos",
+    )
 
-# --- Barra lateral limpa e progressiva ---
-st.sidebar.header("1. Escolha o Experimento")
+# --- Barra lateral ---
+st.sidebar.header("1. Modalidade Experimental")
 modo = st.sidebar.radio(
-    "Nível de estudo:",
+    "Configuração do aparato:",
     [
         "1. Quantização (1 Filtro)",
         "2. Projeção (2 Filtros)",
@@ -103,37 +116,47 @@ modo = st.sidebar.radio(
 )
 
 st.sidebar.divider()
-st.sidebar.header("2. Ajustes da Bancada")
+st.sidebar.header("2. Parâmetros da Bancada")
 n_atomos = st.sidebar.slider("Átomos emitidos pela fonte (N₀)", 20, 5000, step=20, key="n_atomos")
 
 if modo == "1. Quantização (1 Filtro)":
-    theta1 = st.sidebar.slider("Ângulo do Ímã 1 (°)", 0, 180, key="theta1")
+    theta1 = st.sidebar.slider("Orientação do Filtro 1 — θ₁ (°)", 0, 180, key="theta1")
 
 elif modo == "2. Projeção (2 Filtros)":
-    st.sidebar.markdown("**Filtro 1 (Preparador)**")
-    theta1 = st.sidebar.slider("Ângulo do Filtro 1 (°)", 0, 180, key="theta1")
-    feixe1 = st.sidebar.radio("Feixe que passa no Filtro 1", ["+", "-"], horizontal=True, key="feixe1")
-    st.sidebar.markdown("**Filtro 2 (Medidor)**")
-    theta2 = st.sidebar.slider("Ângulo do Filtro 2 (°)", 0, 180, key="theta2")
+    st.sidebar.markdown("**Filtro 1 — Preparador**")
+    theta1 = st.sidebar.slider("Orientação θ₁ (°)", 0, 180, key="theta1")
+    feixe1 = st.sidebar.radio("Canal selecionado em F1", ["+", "-"], horizontal=True, key="feixe1")
+    st.sidebar.markdown("**Filtro 2 — Analisador**")
+    theta2 = st.sidebar.slider("Orientação θ₂ (°)", 0, 180, key="theta2")
 
 else:
-    st.sidebar.markdown("**Filtro 1 (Preparador)**")
-    theta1 = st.sidebar.slider("Ângulo do Filtro 1 (°)", 0, 180, key="theta1")
-    feixe1 = st.sidebar.radio("Feixe que passa no Filtro 1", ["+", "-"], horizontal=True, key="feixe1")
-    st.sidebar.markdown("**Filtro 2 (Intermediário)**")
-    theta2 = st.sidebar.slider("Ângulo do Filtro 2 (°)", 0, 180, key="theta2")
-    feixe2 = st.sidebar.radio("Feixe que passa no Filtro 2", ["+", "-"], horizontal=True, key="feixe2")
-    st.sidebar.markdown("**Filtro 3 (Analisador Final)**")
-    theta3 = st.sidebar.slider("Ângulo do Filtro 3 (°)", 0, 180, key="theta3")
+    st.sidebar.markdown("**Filtro 1 — Preparador**")
+    theta1 = st.sidebar.slider("Orientação θ₁ (°)", 0, 180, key="theta1")
+    feixe1 = st.sidebar.radio("Canal selecionado em F1", ["+", "-"], horizontal=True, key="feixe1")
+    st.sidebar.markdown("**Filtro 2 — Intermediário**")
+    theta2 = st.sidebar.slider("Orientação θ₂ (°)", 0, 180, key="theta2")
+    feixe2 = st.sidebar.radio("Canal selecionado em F2", ["+", "-"], horizontal=True, key="feixe2")
+    st.sidebar.markdown("**Filtro 3 — Analisador Final**")
+    theta3 = st.sidebar.slider("Orientação θ₃ (°)", 0, 180, key="theta3")
+
+with st.sidebar.expander("🎲 Controle Estatístico (Semente)"):
+    st.checkbox(
+        "Fixar semente aleatória",
+        key="usar_seed",
+        help="Permite reproduzir exatamente a mesma realização estatística",
+    )
+    if st.session_state.usar_seed:
+        st.number_input("Valor da semente", min_value=0, max_value=999999, step=1, key="seed_valor")
+        st.caption("Com semente fixa, clicar em 'Novo disparo' incrementa a semente em +1.")
 
 st.sidebar.divider()
-st.sidebar.caption("💡 Dica: reduza N₀ para 40 átomos e clique em 'Novo disparo' para observar o ruído estatístico quântico.")
+st.sidebar.caption("💡 Reduza N₀ (ex.: 40 átomos) e execute novos disparos para observar flutuações estatísticas em amostras finitas.")
 
 st.sidebar.divider()
 st.sidebar.markdown(
     """
     <div style="font-size: 0.82rem; color: #94a3b8; line-height: 1.45;">
-        <strong style="color: #e2e8f0;">Prof. Wesley Sales de Souza</strong><br>
+        <strong style="color: #e2e8f0;">Wesley Sales de Souza</strong><br>
         Licenciatura em Física<br>
         DEFIS – IFMA<br>
         <em>Grupo de Magnetismo e Física Computacional (GMFC)</em>
@@ -142,18 +165,64 @@ st.sidebar.markdown(
     unsafe_allow_html=True,
 )
 
-# --- Motor Físico (usando o núcleo validado em S_G.py) ---
+# --- Motor Físico Persistente ---
 modo_id = 1 if modo.startswith("1.") else (2 if modo.startswith("2.") else 3)
 
-sim = simular_experimento(
-    n0=n_atomos,
-    modo_id=modo_id,
-    theta1=st.session_state.theta1,
-    feixe1=st.session_state.feixe1,
-    theta2=st.session_state.theta2,
-    feixe2=st.session_state.feixe2,
-    theta3=st.session_state.theta3,
+assinatura_atual = (
+    modo_id,
+    n_atomos,
+    st.session_state.theta1,
+    st.session_state.feixe1,
+    st.session_state.theta2,
+    st.session_state.feixe2,
+    st.session_state.theta3,
+    st.session_state.usar_seed,
+    st.session_state.seed_valor if st.session_state.usar_seed else None,
+    st.session_state.disparo_id,
 )
+
+if st.session_state.sim_assinatura != assinatura_atual or st.session_state.sim_resultado is None:
+    rng = (
+        np.random.default_rng(int(st.session_state.seed_valor))
+        if st.session_state.usar_seed
+        else np.random.default_rng()
+    )
+
+    sim_novo = simular_experimento(
+        n0=n_atomos,
+        modo_id=modo_id,
+        theta1=st.session_state.theta1,
+        feixe1=st.session_state.feixe1,
+        theta2=st.session_state.theta2,
+        feixe2=st.session_state.feixe2,
+        theta3=st.session_state.theta3,
+        rng=rng,
+    )
+
+    rad = np.radians(sim_novo["theta_anteparo"])
+    cx, cz = np.sin(rad), np.cos(rad)
+    px, pz = cz, -cx
+
+    u_cl = rng.uniform(-1.0, 1.0, n_atomos)
+    ruido_t = rng.normal(0, 0.12, n_atomos)
+
+    coords_novas = {
+        "cx": cx,
+        "cz": cz,
+        "x_mais": rng.normal(cx, 0.14, sim_novo["n_final_mais"]),
+        "z_mais": rng.normal(cz, 0.14, sim_novo["n_final_mais"]),
+        "x_menos": rng.normal(-cx, 0.14, sim_novo["n_final_menos"]),
+        "z_menos": rng.normal(-cz, 0.14, sim_novo["n_final_menos"]),
+        "xc": u_cl * cx + ruido_t * px,
+        "zc": u_cl * cz + ruido_t * pz,
+    }
+
+    st.session_state.sim_assinatura = assinatura_atual
+    st.session_state.sim_resultado = sim_novo
+    st.session_state.sim_coords = coords_novas
+
+sim = st.session_state.sim_resultado
+coords = st.session_state.sim_coords
 
 p_final_mais = sim["p_final_mais"]
 p_final_menos = sim["p_final_menos"]
@@ -168,6 +237,8 @@ estado1 = sim["estado1"]
 estado_entrada = sim["estado_entrada"]
 delta_theta = sim["delta_theta"]
 sigma_f = sim["sigma_f"]
+desvio_mais = sim["desvio_mais"]
+desvio_menos = sim["desvio_menos"]
 
 if modo_id >= 2:
     n_ent_2 = sim["n_ent_2"]
@@ -182,7 +253,7 @@ pct_mais = sim["f_mais"] * 100
 pct_menos = sim["f_menos"] * 100
 
 
-# --- Função para desenhar a bancada (SVG compacto via components.html) ---
+# --- Bancada SVG ---
 def desenhar_bancada():
     w_mais = max(1.5, (n_final_mais / max(1, n_atomos)) * 7)
     w_menos = max(1.5, (n_final_menos / max(1, n_atomos)) * 7)
@@ -298,15 +369,9 @@ def desenhar_bancada():
     components.html(html, height=164)
 
 
-# --- Funções para os Gráficos ---
+# --- Gráficos ---
 def grafico_quantico(altura=380):
-    rad = np.radians(theta_anteparo)
-    cx, cz = np.sin(rad), np.cos(rad)
-
-    x_mais = np.random.normal(cx, 0.14, n_final_mais)
-    z_mais = np.random.normal(cz, 0.14, n_final_mais)
-    x_menos = np.random.normal(-cx, 0.14, n_final_menos)
-    z_menos = np.random.normal(-cz, 0.14, n_final_menos)
+    cx, cz = coords["cx"], coords["cz"]
 
     fig = go.Figure()
     fig.add_trace(go.Scatter(
@@ -315,15 +380,15 @@ def grafico_quantico(altura=380):
         line=dict(color="rgba(255, 255, 255, 0.3)", width=2, dash="dash")
     ))
     fig.add_trace(go.Scatter(
-        x=x_mais, y=z_mais, mode="markers", name="Spin (+ℏ/2)",
+        x=coords["x_mais"], y=coords["z_mais"], mode="markers", name="Spin (+ℏ/2)",
         marker=dict(color="#00CC96", size=5, opacity=0.7)
     ))
     fig.add_trace(go.Scatter(
-        x=x_menos, y=z_menos, mode="markers", name="Spin (-ℏ/2)",
+        x=coords["x_menos"], y=coords["z_menos"], mode="markers", name="Spin (-ℏ/2)",
         marker=dict(color="#EF553B", size=5, opacity=0.7)
     ))
     fig.update_layout(
-        title=f"⚛️ Anteparo Quântico — {nome_final} (θ = {theta_anteparo}°)",
+        title=f"⚛️ Anteparo Quântico (esquemático) — {nome_final} (θ = {theta_anteparo}°)",
         xaxis=dict(title="Eixo x", range=[-2, 2], zeroline=True, gridcolor="#262a36"),
         yaxis=dict(title="Eixo z", range=[-2, 2], zeroline=True, gridcolor="#262a36", scaleanchor="x", scaleratio=1),
         height=altura,
@@ -336,18 +401,12 @@ def grafico_quantico(altura=380):
 
 
 def grafico_classico(altura=350):
-    rad = np.radians(theta_anteparo)
-    cx, cz = np.sin(rad), np.cos(rad)
-    px, pz = cz, -cx
-
-    u = np.random.uniform(-1.0, 1.0, n_atomos)
-    ruido_t = np.random.normal(0, 0.12, n_atomos)
-    xc = u * cx + ruido_t * px
-    zc = u * cz + ruido_t * pz
+    cx, cz = coords["cx"], coords["cz"]
 
     texto_classico = (
-        "**Física Clássica (1 Filtro):** Os átomos saem do forno com dipolos magnéticos apontando em todas as direções 3D. "
-        "Como $\\mu_n = \\mu \\cos\\alpha$ varia continuamente entre $-\\mu$ e $+\\mu$, deveria surgir uma **faixa contínua** — sem separação em dois feixes."
+        "**Modelo Clássico (idealização didática):** Assumindo dipolos magnéticos clássicos orientados isotropicamente em 3D, "
+        "a componente $\\mu_n = \\mu \\cos\\alpha$ varia continuamente em $[-\\mu, +\\mu]$. Sob um gradiente de campo $\\partial B_n / \\partial n$, "
+        "a deflexão deveria formar uma **faixa contínua** sobre o anteparo."
     )
 
     fig = go.Figure()
@@ -357,11 +416,11 @@ def grafico_classico(altura=350):
         line=dict(color="rgba(255, 255, 255, 0.3)", width=2, dash="dash")
     ))
     fig.add_trace(go.Scatter(
-        x=xc, y=zc, mode="markers", name="Dipolo clássico (contínuo)",
+        x=coords["xc"], y=coords["zc"], mode="markers", name="Dipolo clássico (contínuo)",
         marker=dict(color="#F59E0B", size=5, opacity=0.65)
     ))
     fig.update_layout(
-        title=f"🏛️ Previsão Clássica — {nome_final} (θ = {theta_anteparo}°)",
+        title=f"🏛️ Previsão Clássica (esquemática) — {nome_final} (θ = {theta_anteparo}°)",
         xaxis=dict(title="Eixo x", range=[-2, 2], zeroline=True, gridcolor="#262a36"),
         yaxis=dict(title="Eixo z", range=[-2, 2], zeroline=True, gridcolor="#262a36", scaleanchor="x", scaleratio=1),
         height=altura,
@@ -376,13 +435,13 @@ def grafico_classico(altura=350):
 def grafico_barras():
     fig_bar = go.Figure(data=[
         go.Bar(
-            name="Experimental",
+            name="Frequência observada",
             x=["Saída (+)", "Saída (-)"],
             y=[pct_mais, pct_menos],
             marker_color=["#00CC96", "#EF553B"],
         ),
         go.Bar(
-            name="Teórico",
+            name="Probabilidade teórica",
             x=["Saída (+)", "Saída (-)"],
             y=[p_final_mais * 100, p_final_menos * 100],
             marker_color=["rgba(0,204,150,0.3)", "rgba(239,85,59,0.3)"],
@@ -403,34 +462,158 @@ def grafico_barras():
 def exibir_explicacao_quantica():
     if modo == "1. Quantização (1 Filtro)":
         st.info(
-            "**Realidade Quântica:** O momento angular intrínseco (spin) é **quantizado**. "
-            "Independentemente do ângulo do ímã, o anteparo registra apenas **dois pontos discretos** ($+\\hbar/2$ e $-\\hbar/2$)."
+            "**Quantização espacial do spin:** O momento angular intrínseco é quantizado. "
+            "Para qualquer orientação do gradiente magnético, a medição de $\\hat{S}_n$ retorna apenas dois autovalores discretos: $+\\hbar/2$ e $-\\hbar/2$."
         )
     elif modo == "3. Colapso de Estado (3 Filtros)" and n_entrada_final == 0:
         st.warning(
-            "**Bloqueio total no Filtro 2:** 0 átomos chegaram ao Filtro 3 porque o estado selecionado no Filtro 2 "
-            "é ortogonal ao estado preparado no Filtro 1."
+            "**Bloqueio total no Filtro 2:** Nenhuma partícula alcançou o Filtro 3 porque o canal selecionado em F2 "
+            "corresponde a um autoestado ortogonal ao estado preparado em F1."
         )
     elif modo == "3. Colapso de Estado (3 Filtros)" and theta1 == theta3 and abs(theta2 - theta1) == 90:
         st.success(
-            "**Colapso de Estado ($z \\to x \\to z$):** Medir no eixo perpendicular ($90^\\circ$) no Filtro 2 destrói a informação "
-            "anterior e faz a componente descartada **reaparecer** com 50% de chance no Filtro 3!"
+            "**Reaparição por medição intermediária ($z \\to x \\to z$):** Como $[\\hat{S}_z, \\hat{S}_x] \\neq 0$, "
+            "a seleção em $90^\\circ$ no Filtro 2 projeta o sistema em uma superposição de $|+z\\rangle$ e $|-z\\rangle$, restaurando a probabilidade de $50\\%$ para a componente anteriormente bloqueada."
         )
     elif abs(p_final_mais - 1.0) < 1e-6 or abs(p_final_menos - 1.0) < 1e-6:
         st.info(
-            "**Autoestado puro:** Os átomos entram alinhados (ou antialinhados) com o eixo do ímã final. "
-            "100% saem em apenas um canal."
+            "**Autoestado do observável medido:** O estado incidente coincide com um autoestado do analisador final; "
+            "a medição é determinística ($P = 1$ em um único canal)."
         )
     elif abs(p_final_mais - 0.5) < 1e-3:
         st.info(
-            "**Superposição máxima (50% / 50%):** O eixo de medição está perpendicular ($90^\\circ$) ao estado de entrada. "
-            "Cada átomo escolhe aleatoriamente entre $+\\hbar/2$ e $-\\hbar/2$."
+            "**Superposição simétrica ($50\\% / 50\\%$):** O eixo do analisador é ortogonal ($90^\\circ$) ao eixo de preparação. "
+            "As amplitudes de probabilidade têm igual módulo ($1/\\sqrt{2}$)."
         )
     else:
         st.info(
-            f"**Projeção oblíqua ($\\Delta\\theta = {delta_theta:.0f}^\\circ$):** A probabilidade segue "
+            f"**Projeção oblíqua ($\\Delta\\theta = {delta_theta:.0f}^\\circ$):** A probabilidade condicional segue "
             f"$P_+ = \\cos^2({delta_theta:.0f}^\\circ / 2) = {p_final_mais:.3f}$."
         )
+
+
+def renderizar_formalismo_teorico():
+    st.subheader("Formalismo Quântico em Notação de Dirac")
+    st.caption(
+        "Desenvolvimento progressivo da descrição matemática do spin-1/2 no experimento de Stern–Gerlach. "
+        "As representações matriciais são utilizadas apenas como suporte computacional."
+    )
+
+    with st.expander("1. Introdução ao Experimento de Stern–Gerlach", expanded=False):
+        st.markdown(
+            "Um feixe colimado de átomos de prata (com momento angular orbital $L=0$ e um elétron de valência de spin $s=1/2$) "
+            "atravessa uma região com campo magnético não uniforme $\\vec{B}$. A força sobre um dipolo magnético $\\vec{\\mu}$ ao longo "
+            "do eixo $\\hat{n}$ do gradiente é dada por:"
+        )
+        st.latex(r"F_n = \mu_n \frac{\partial B_n}{\partial n}, \qquad \vec{\mu} = \frac{g_s q}{2m}\vec{S}")
+        st.markdown(
+            "Enquanto o modelo clássico prevê uma distribuição contínua de projeções $\\mu_n \\in [-\\mu, +\\mu]$, o experimento revela "
+            "**apenas dois feixes discretos**, evidenciando que a componente do spin ao longo de qualquer eixo $\\hat{n}$ só assume os autovalores $\\pm \\hbar/2$."
+        )
+
+    with st.expander("2. Estados de Spin-1/2, Bases, Ortonormalidade e Completeza", expanded=False):
+        st.markdown(
+            "O espaço de Hilbert de uma partícula de spin-1/2 é bidimensional ($\\mathcal{H} = \\mathbb{C}^2$). "
+            "A base padrão é formada pelos autoestados de $\\hat{S}_z$:"
+        )
+        st.latex(r"|+z\rangle, \qquad |-z\rangle")
+        st.markdown("Estes estados satisfazem as relações de **ortonormalidade** e **completeza (resolução da identidade)**:")
+        st.latex(r"\langle +z|+z\rangle = 1, \qquad \langle -z|-z\rangle = 1, \qquad \langle +z|-z\rangle = 0")
+        st.latex(r"|+z\rangle\langle +z| + |-z\rangle\langle -z| = \hat{I}")
+        st.markdown(
+            "Um mesmo estado quântico pode ser expresso em qualquer outra base ortonormal. Por exemplo, os autoestados de $\\hat{S}_x$ "
+            "são combinações lineares (superposições coerentes) dos autoestados de $\\hat{S}_z$:"
+        )
+        st.latex(
+            r"|+x\rangle = \frac{1}{\sqrt{2}}\left(|+z\rangle + |-z\rangle\right), \qquad "
+            r"|-x\rangle = \frac{1}{\sqrt{2}}\left(|+z\rangle - |-z\rangle\right)"
+        )
+        st.markdown(
+            "Para qualquer direção arbitrária $\\hat{n}$, os autoestados $|+\\hat{n}\\rangle$ e $|-\\hat{n}\\rangle$ também formam uma base ortonormal completa: "
+            "$\\langle +\\hat{n}|-\\hat{n}\\rangle = 0$ e $|+\\hat{n}\\rangle\\langle +\\hat{n}| + |-\\hat{n}\\rangle\\langle -\\hat{n}| = \\hat{I}$."
+        )
+
+    with st.expander("3. Operadores de Spin, Observáveis e Representação Espectral", expanded=False):
+        st.markdown(
+            "Cada orientação do analisador de Stern–Gerlach define o observável físico que está sendo medido. "
+            "Os operadores cartesianos de spin relacionam-se às matrizes de Pauli $\\sigma_i$ ($i \\in \\{x, y, z\\}$) por:"
+        )
+        st.latex(r"\hat{S}_i = \frac{\hbar}{2}\sigma_i")
+        st.markdown("Suas equações de autovalor são:")
+        st.latex(r"\hat{S}_z |\pm z\rangle = \pm \frac{\hbar}{2} |\pm z\rangle, \qquad \hat{S}_x |\pm x\rangle = \pm \frac{\hbar}{2} |\pm x\rangle")
+        st.markdown("Em notação de Dirac, qualquer operador de spin admite a **representação espectral**:")
+        st.latex(r"\hat{S}_z = \frac{\hbar}{2}|+z\rangle\langle +z| - \frac{\hbar}{2}|-z\rangle\langle -z|")
+        st.latex(r"\hat{S}_n = \vec{S}\cdot\hat{n} = \frac{\hbar}{2}|+\hat{n}\rangle\langle +\hat{n}| - \frac{\hbar}{2}|-\hat{n}\rangle\langle -\hat{n}|")
+        st.markdown("Como $[\\hat{S}_x, \\hat{S}_z] = -i\\hbar\\hat{S}_y \\neq 0$, os observáveis $\\hat{S}_x$ e $\\hat{S}_z$ são **incompatíveis** e não possuem uma base comum de autoestados.")
+
+    with st.expander("4. Regra de Born e Amplitudes de Probabilidade", expanded=False):
+        st.markdown(
+            "Dado um sistema preparado no estado puro normalizado $|\\psi\\rangle$, a **amplitude de probabilidade** de obter o resultado associado "
+            "ao autoestado $|a\\rangle$ é o produto interno complexo $\\langle a|\\psi\\rangle$. Pela **regra de Born**, a probabilidade física é o módulo quadrado dessa amplitude:"
+        )
+        st.latex(r"P(a) = |\langle a|\psi\rangle|^2")
+        st.markdown("**Exemplo completo:** preparando $|\\psi\\rangle = |+z\\rangle$ e medindo $\\hat{S}_x$, temos:")
+        st.latex(
+            r"\langle +x|+z\rangle = \frac{1}{\sqrt{2}}\left(\langle +z| + \langle -z|\right)|+z\rangle "
+            r"= \frac{1}{\sqrt{2}}\left(\underbrace{\langle +z|+z\rangle}_{1} + \underbrace{\langle -z|+z\rangle}_{0}\right) = \frac{1}{\sqrt{2}}"
+        )
+        st.latex(r"P(+x|+z) = \left|\frac{1}{\sqrt{2}}\right|^2 = \frac{1}{2}, \qquad P(-x|+z) = \left|\frac{1}{\sqrt{2}}\right|^2 = \frac{1}{2}")
+        st.markdown(
+            "A **amplitude** pode ser negativa ou complexa e carrega informação de fase (essencial para interferência); "
+            "já a **probabilidade** é sempre real, não negativa e satisfaz $P(+) + P(-) = 1$."
+        )
+
+    with st.expander("5. Projetores e Processo de Medição (Colapso de Estado)", expanded=False):
+        st.markdown("Associamos a cada canal de saída de um analisador na direção $\\hat{n}$ um **operador projetor**:")
+        st.latex(r"\hat{P}_+ = |+\hat{n}\rangle\langle +\hat{n}|, \qquad \hat{P}_- = |-\hat{n}\rangle\langle -\hat{n}|")
+        st.markdown("Estes operadores satisfazem idempotência, ortogonalidade e completeza:")
+        st.latex(r"\hat{P}_+^2 = \hat{P}_+, \qquad \hat{P}_-^2 = \hat{P}_-, \qquad \hat{P}_+\hat{P}_- = 0, \qquad \hat{P}_+ + \hat{P}_- = \hat{I}")
+        st.markdown("As probabilidades podem ser escritas diretamente como valores esperados dos projetores:")
+        st.latex(r"P(\pm) = \langle\psi|\hat{P}_\pm|\psi\rangle")
+        st.markdown("Quando um feixe atravessa o analisador e apenas o canal $(+)$ é selecionado, o estado pós-medição é atualizado (colapso projetivo) para:")
+        st.latex(r"|\psi'\rangle = \frac{\hat{P}_+|\psi\rangle}{\sqrt{\langle\psi|\hat{P}_+|\psi\rangle}}")
+        st.markdown("Na simulação, bloquear um dos canais em F1 ou F2 corresponde exatamente à aplicação desse postulado de projeção.")
+
+    with st.expander("6. Estados Puros, Estados Mistos e Matriz Densidade", expanded=False):
+        st.markdown(
+            "Átomos emitidos por um forno térmico não estão em um estado puro único: formam um **ensemble estatístico** com orientações aleatórias. "
+            "Descrevemos esse feixe não polarizado pela **matriz densidade**:"
+        )
+        st.latex(r"\hat{\rho} = \frac{1}{2}\left(|+z\rangle\langle +z| + |-z\rangle\langle -z|\right) = \frac{\hat{I}}{2}")
+        st.markdown(
+            "Um erro comum é confundir o feixe não polarizado com a superposição coerente $|+x\\rangle = \\frac{1}{\\sqrt{2}}(|+z\\rangle + |-z\\rangle)$. "
+            "No estado puro $|+x\\rangle$, uma medição em $x$ dá $P(+x) = 1$; já no estado misto $\\hat{\\rho} = \\hat{I}/2$, **qualquer** direção $\\hat{n}$ produz $50\\% / 50\\%$:"
+        )
+        st.latex(r"P(\pm) = \operatorname{Tr}\!\left(\hat{\rho}\,\hat{P}_\pm\right) = \frac{1}{2}\operatorname{Tr}(\hat{P}_\pm) = \frac{1}{2}")
+        st.markdown("Na simulação, a fonte emite $N_0$ átomos nesse estado misto; o Filtro 1 atua como preparador, convertendo o feixe transmitido em um estado puro.")
+
+    with st.expander("7. Sequências de Analisadores e a Cascata z → x → z", expanded=False):
+        st.markdown("Para uma sequência de três analisadores com canais selecionados $(a, b, c)$, a probabilidade total de um átomo emitido pela fonte alcançar o canal final segue a regra da cadeia:")
+        st.latex(r"P(a, b, c) = P(a)\,P(b|a)\,P(c|a, b)")
+        st.markdown("Considere a sequência clássica:")
+        st.latex(r"|+z\rangle \;\longrightarrow\; \text{analisador em } x \text{ (seleciona } +x\text{)} \;\longrightarrow\; \text{analisador em } z")
+        st.markdown("Ao selecionar $|+x\\rangle = \\frac{1}{\\sqrt{2}}(|+z\\rangle + |-z\\rangle)$ no Filtro 2, a medição final em $z$ fornece:")
+        st.latex(r"P(+z|+x) = |\langle +z|+x\rangle|^2 = \frac{1}{2}, \qquad P(-z|+x) = |\langle -z|+x\rangle|^2 = \frac{1}{2}")
+        st.markdown(
+            "A componente $|-z\\rangle$, completamente descartada pelo Filtro 1, **reaparece** porque a medição intermediária em $x$ "
+            "altera irreversivelmente o estado quântico (diferentemente da passagem livre pelo espaço sem medição)."
+        )
+
+    with st.expander("8. Generalização para Direções Tridimensionais e Esfera de Bloch", expanded=False):
+        st.markdown(
+            "Para uma direção arbitrária $\\hat{n} = (\\sin\\theta\\cos\\phi,\\, \\sin\\theta\\sin\\phi,\\, \\cos\\theta)$ "
+            "parametrizada pelos ângulos polar $\\theta \\in [0, \\pi]$ e azimutal $\\phi \\in [0, 2\\pi)$, os autoestados de $\\hat{S}_n$ são:"
+        )
+        st.latex(
+            r"|+\hat{n}\rangle = \cos\frac{\theta}{2}|+z\rangle + e^{i\phi}\sin\frac{\theta}{2}|-z\rangle, \qquad "
+            r"|-\hat{n}\rangle = -e^{-i\phi}\sin\frac{\theta}{2}|+z\rangle + \cos\frac{\theta}{2}|-z\rangle"
+        )
+        st.markdown(
+            "Geometricamente, cada estado puro de spin-1/2 corresponde a um ponto na superfície da **esfera de Bloch**. "
+            "Estados ortogonais ocupam pontos antípodas ($180^\\circ$). Se um estado $|+\\hat{n}_1\\rangle$ é medido na direção $\\hat{n}_2$ "
+            "com ângulo $\\gamma$ entre os eixos ($\\cos\\gamma = \\hat{n}_1 \\cdot \\hat{n}_2$), as probabilidades de transição dependem apenas de $\\gamma$:"
+        )
+        st.latex(r"P(+\hat{n}_2 | +\hat{n}_1) = \cos^2\!\left(\frac{\gamma}{2}\right), \qquad P(-\hat{n}_2 | +\hat{n}_1) = \sin^2\!\left(\frac{\gamma}{2}\right)")
 
 
 # ==========================================================
@@ -439,8 +622,8 @@ def exibir_explicacao_quantica():
 aba_exp, aba_aparato, aba_alg, aba_guia = st.tabs([
     "🧪 Bancada do Experimento",
     "🎬 Aparato Físico (3D)",
-    "📐 Formalismo & Curva Teórica",
-    "🎯 Roteiro de Desafios"
+    "📐 Formalismo Quântico",
+    "🎯 Roteiro de Investigação"
 ])
 
 # --- ABA 1: BANCADA VISUAL ---
@@ -469,8 +652,9 @@ with aba_exp:
         st.divider()
         col_m, col_b = st.columns([1, 2])
         with col_m:
-            st.metric("Saída (+) [+ℏ/2]", f"{n_final_mais} átomos", f"{pct_mais:.1f}%", delta_color="off")
-            st.metric("Saída (-) [-ℏ/2]", f"{n_final_menos} átomos", f"{pct_menos:.1f}%", delta_color="off")
+            st.metric("Saída (+) [+ℏ/2]", f"{n_final_mais} átomos", f"{pct_mais:.1f}% (desvio {desvio_mais*100:+.1f}%)", delta_color="off")
+            st.metric("Saída (-) [-ℏ/2]", f"{n_final_menos} átomos", f"{pct_menos:.1f}% (desvio {desvio_menos*100:+.1f}%)", delta_color="off")
+            st.caption(f"Incerteza estatística esperada: σ_f = ±{sigma_f*100:.2f}%")
         with col_b:
             st.plotly_chart(grafico_barras(), use_container_width=True)
 
@@ -481,10 +665,23 @@ with aba_exp:
             st.plotly_chart(grafico_quantico(altura=380), use_container_width=True)
 
         with col_info:
-            st.caption(f"Fluxo no {nome_final}: **N_entrada = {n_entrada_final}** de **N₀ = {n_atomos}** emitidos pela fonte (σ_f = {sigma_f*100:.2f}%).")
+            st.caption(
+                f"Fluxo no {nome_final}: **N_entrada = {n_entrada_final}** de **N₀ = {n_atomos}** emitidos "
+                f"| Incerteza estatística: **σ_f = ±{sigma_f*100:.2f}%**"
+            )
             c1, c2 = st.columns(2)
-            c1.metric("Saída (+) [+ℏ/2]", f"{n_final_mais} átomos", f"{pct_mais:.1f}% (teor. {p_final_mais*100:.1f}%)", delta_color="off")
-            c2.metric("Saída (-) [-ℏ/2]", f"{n_final_menos} átomos", f"{pct_menos:.1f}% (teor. {p_final_menos*100:.1f}%)", delta_color="off")
+            c1.metric(
+                "Saída (+) [+ℏ/2]",
+                f"{n_final_mais} átomos",
+                f"{pct_mais:.1f}% (teor. {p_final_mais*100:.1f}% | {desvio_mais*100:+.1f}%)",
+                delta_color="off",
+            )
+            c2.metric(
+                "Saída (-) [-ℏ/2]",
+                f"{n_final_menos} átomos",
+                f"{pct_menos:.1f}% (teor. {p_final_menos*100:.1f}% | {desvio_menos*100:+.1f}%)",
+                delta_color="off",
+            )
             st.plotly_chart(grafico_barras(), use_container_width=True)
             exibir_explicacao_quantica()
 
@@ -497,27 +694,27 @@ with aba_aparato:
         with col_gif:
             gifs = list(pasta_app.glob("*.gif"))
             if gifs:
-                st.image(str(gifs[0]), caption="Montagem física: fonte, ímã não uniforme e tela.", use_container_width=True)
+                st.image(str(gifs[0]), caption="Montagem física: fonte térmica, ímã com gradiente de campo e anteparo.", use_container_width=True)
             else:
                 st.error(f"Nenhum arquivo .gif encontrado em: {pasta_app}")
         with col_txt:
-            st.subheader("Como funciona o aparelho real")
+            st.subheader("Funcionamento do Aparato Físico")
             st.markdown("""
-1. **Fonte de átomos:** aquece átomos de prata, emitindo um feixe com spins em direções aleatórias.
-2. **Campo magnético não uniforme (N–S):** o gradiente de campo entre os polos aplica uma força proporcional à componente do spin ao longo do eixo do ímã.
-3. **Tela de detecção:** em vez de formar uma faixa contínua (previsão clássica), o feixe se divide em apenas **dois pontos discretos** ($+\\hbar/2$ e $-\\hbar/2$).
+1. **Fonte de átomos:** um forno aquece átomos de prata, emitindo um feixe colimado não polarizado ($\\hat{\\rho} = \\hat{I}/2$).
+2. **Campo magnético não uniforme (N–S):** o gradiente $\\partial B_n / \\partial n$ exerce uma força proporcional à componente do momento magnético de spin ao longo do eixo do analisador.
+3. **Anteparo de detecção:** em contraste com a faixa contínua prevista pelo modelo clássico, o feixe se divide em apenas **duas regiões discretas**, correspondentes aos autovalores $+\\hbar/2$ e $-\\hbar/2$.
             """)
 
     elif modo == "2. Projeção (2 Filtros)":
         if theta1 == theta2:
             nome_img = "f2_alinhado.png"
-            legenda = "Aparatos alinhados (B₁ ∥ B₂): o feixe selecionado em F₂ não volta a se dividir em P₂."
+            legenda = "Analisadores alinhados (B₁ ∥ B₂): o estado preparado em F1 é autoestado de F2 e não sofre nova divisão."
         elif abs(theta2 - 90) <= 15:
             nome_img = "f2_horizontal_x.png"
-            legenda = "Segundo aparato girado para o eixo x̂ (plano amarelo): separação horizontal em N₁ e N₂."
+            legenda = "Segundo analisador orientado em x̂ (90°): o feixe divide-se simetricamente em dois canais horizontais."
         else:
             nome_img = "f2_inclinado_z.png"
-            legenda = "Filtros com orientação relativa oblíqua (plano verde → plano azul): o feixe volta a se dividir em P₂."
+            legenda = "Analisadores em orientação oblíqua: o estado preparado projeta-se nos dois autoestados do segundo analisador."
 
         caminho_img = pasta_app / nome_img
         _, col_centro, _ = st.columns([0.5, 3, 0.5])
@@ -525,7 +722,7 @@ with aba_aparato:
             if caminho_img.exists():
                 st.image(str(caminho_img), caption=legenda, use_container_width=True)
             else:
-                st.warning(f"Salve a imagem '{nome_img}' na pasta: {pasta_app}")
+                st.warning(f"Imagem '{nome_img}' não encontrada em: {pasta_app}")
 
     else:
         candidatos_f3 = list(pasta_app.glob("f3_colapso.*"))
@@ -534,39 +731,42 @@ with aba_aparato:
             if candidatos_f3:
                 st.image(
                     str(candidatos_f3[0]),
-                    caption="Cascata z → x → z: após filtrar apenas N₁ em P₁ e medir no plano horizontal (x̂) em P₂, o componente N₂ reaparece em P₃.",
+                    caption="Cascata z → x → z: após selecionar |+z⟩ em F1 e medir em x̂ em F2, a componente |-z⟩ reaparece em F3.",
                     use_container_width=True,
                 )
             else:
-                st.warning(f"Salve a imagem 'f3_colapso.png' (ou .jpg) na pasta: {pasta_app}")
+                st.warning(f"Imagem 'f3_colapso.png' não encontrada em: {pasta_app}")
 
-# --- ABA 3: FORMALISMO & CURVA TEÓRICA ---
+# --- ABA 3: FORMALISMO QUÂNTICO ---
 with aba_alg:
+    renderizar_formalismo_teorico()
+    st.divider()
+
     if modo == "1. Quantização (1 Filtro)":
-        st.subheader("Por que 50% / 50% em qualquer ângulo?")
+        st.subheader("Cálculo para a Configuração Atual (1 Filtro)")
         st.write(
-            "Os átomos saem do forno térmico com orientações de spin completamente aleatórias (uma **mistura estatística** "
-            "descrita por $\\hat{\\rho} = \\hat{I}/2$, não um estado puro). Ao atravessar o campo magnético não uniforme "
-            "orientado em $\\hat{n}_1$, cada átomo colapsa para um dos dois autoestados do operador $\\hat{S}_{n_1} = \\vec{S} \\cdot \\hat{n}_1$:"
+            f"Com $\\theta_1 = {theta1}^\\circ$, a fonte não polarizada ($\\hat{{\\rho}} = \\hat{{I}}/2$) fornece "
+            f"$P(+\\hat{{n}}_1) = \\operatorname{{Tr}}(\\hat{{\\rho}}\\hat{{P}}_+) = 0.500$ e "
+            f"$P(-\\hat{{n}}_1) = \\operatorname{{Tr}}(\\hat{{\\rho}}\\hat{{P}}_-) = 0.500$. "
+            "Na base de $\\hat{S}_z$, os autoestados do analisador são:"
         )
         m1_v, m2_v = auto_spin(theta1)
         st.latex(
             rf"|+\hat{{n}}_1\rangle = \begin{{pmatrix}} {m1_v[0].real+0.0:.3f} \\ {m1_v[1].real+0.0:.3f} \end{{pmatrix}}, \qquad "
             rf"|-\hat{{n}}_1\rangle = \begin{{pmatrix}} {m2_v[0].real+0.0:.3f} \\ {m2_v[1].real+0.0:.3f} \end{{pmatrix}}"
         )
-        st.write("Passe para o modo **2. Projeção (2 Filtros)** ou **3. Colapso de Estado (3 Filtros)** na barra lateral para ver os cálculos de Dirac e a curva $\\cos^2(\\Delta\\theta/2)$.")
     else:
         col_dirac, col_curva = st.columns([1.1, 1])
 
         with col_dirac:
-            st.subheader("Formalismo de Dirac")
-            st.write(f"**1. Estado preparado pelo Filtro 1 ({feixe1}, {theta1}°) — $P_1 = {p_passou_f1:.3f}$:**")
+            st.subheader("Cálculo para a Configuração Atual")
+            st.write(f"**1. Estado preparado pelo Filtro 1 ({feixe1}, {theta1}°) — $P(a) = {p_passou_f1:.3f}$:**")
             st.latex(
                 rf"|\chi_1\rangle = \begin{{pmatrix}} {estado1[0].real + 0.0:.3f} \\ {estado1[1].real + 0.0:.3f} \end{{pmatrix}}"
             )
 
             if modo == "3. Colapso de Estado (3 Filtros)":
-                st.write(f"**2. Colapso no Filtro 2 ({feixe2}, {theta2}°):**")
+                st.write(f"**2. Projeção no Filtro 2 ({feixe2}, {theta2}°):**")
                 st.latex(
                     rf"P(b|a) = |\langle {feixe2}\hat{{n}}_2 | \chi_1 \rangle|^2 = {p_passou_f2:.3f} "
                     rf"\quad \Longrightarrow \quad "
@@ -603,7 +803,7 @@ with aba_alg:
             b0, b1 = estado_entrada[0].real + 0.0, estado_entrada[1].real + 0.0
             amp = a0 * b0 + a1 * b1
 
-            with st.expander("🔍 Abrir conta do produto interno passo a passo"):
+            with st.expander("🔍 Produto interno passo a passo (representação matricial)"):
                 st.latex(
                     rf"\langle +\hat{{n}} | \chi \rangle = "
                     rf"\begin{{pmatrix}} {a0:.3f} & {a1:.3f} \end{{pmatrix}}"
@@ -613,7 +813,7 @@ with aba_alg:
                 st.latex(rf"P_+ = |{amp:.3f}|^2 = {amp**2:.3f}")
 
         with col_curva:
-            st.subheader("Lei Quântica vs. Seu Experimento")
+            st.subheader("Lei Quântica vs. Frequência Observada")
             angulos = np.linspace(0, 180, 181)
             curva_p = np.cos(np.radians(angulos) / 2) ** 2
 
@@ -625,13 +825,13 @@ with aba_alg:
             if n_entrada_final > 0:
                 fig_c.add_trace(go.Scatter(
                     x=[delta_theta], y=[pct_mais], mode="markers",
-                    name="Seu experimento",
+                    name="Simulação atual",
                     marker=dict(color="#f59e0b", size=14, symbol="star", line=dict(color="#fff", width=1.5))
                 ))
 
             fig_c.update_layout(
                 xaxis=dict(title="Ângulo relativo Δθ (°)", range=[-5, 185], gridcolor="#262a36"),
-                yaxis=dict(title="Probabilidade de Saída (+) [%]", range=[-5, 108], gridcolor="#262a36"),
+                yaxis=dict(title="Probabilidade condicional (+) [%]", range=[-5, 108], gridcolor="#262a36"),
                 height=360,
                 margin=dict(l=20, r=20, t=20, b=20),
                 legend=dict(orientation="h", y=1.12, x=0.5, xanchor="center"),
@@ -640,81 +840,83 @@ with aba_alg:
             )
             st.plotly_chart(fig_c, use_container_width=True)
             st.caption(
-                "Note que na óptica clássica (Lei de Malus) a curva é $\\cos^2(\\Delta\\theta)$ e zera em $90^\\circ$. "
-                "Para o spin-1/2, o fator $1/2$ faz a probabilidade zerar apenas em $180^\\circ$!"
+                "Diferentemente da polarização óptica clássica (Lei de Malus, $\\cos^2\\Delta\\theta$), "
+                "para partículas de spin-1/2 o fator $1/2$ implica ortogonalidade apenas em $\\Delta\\theta = 180^\\circ$."
             )
 
-# --- ABA 4: ROTEIRO DE DESAFIOS ---
+# --- ABA 4: ROTEIRO DE INVESTIGAÇÃO ---
 with aba_guia:
-    st.subheader("Roteiro de Investigação (Prever → Testar → Explicar)")
-    st.write("Use estes 3 desafios para conduzir a aula ou testar sua intuição quântica.")
+    st.subheader("Roteiro de Investigação Experimental")
+    st.write(
+        "Explore os cenários abaixo seguindo a sequência **previsão teórica → simulação → interpretação física** "
+        "para verificar experimentalmente os postulados da Mecânica Quântica para sistemas de spin-1/2."
+    )
 
     with st.container(border=True):
-        st.markdown("### Desafio 1: O Choque da Quantização")
+        st.markdown("### Experimento 1: Quantização Espacial do Spin")
         st.write(
-            "Um feixe térmico de átomos de prata sai do forno com spins em todas as direções possíveis "
-            "e entra em um ímã vertical ($0^\\circ$). **O que aparece no anteparo?**"
+            "Um feixe térmico não polarizado ($\\hat{\\rho} = \\hat{I}/2$) incide sobre um analisador orientado em $0^\\circ$ ($\\hat{z}$). "
+            "Observe a diferença entre a distribuição contínua prevista pelo modelo clássico e os dois canais discretos registrados no anteparo."
         )
         st.button(
-            "▶️ Carregar Desafio 1 na Bancada",
+            "▶️ Carregar Experimento 1 na Bancada",
             on_click=carregar_cenario,
             args=("1. Quantização (1 Filtro)", 0, "+", 90, "+", 0, 1000)
         )
-        with st.expander("Ver explicação"):
+        with st.expander("Análise física"):
             st.write(
-                "Em vez da linha contínua prevista pela física clássica, aparecem apenas duas manchas. "
-                "A componente do momento angular intrínseco (spin) ao longo de qualquer eixo só pode assumir valores discretos ($\\pm \\hbar/2$)."
+                "O operador $\\hat{S}_z$ possui apenas dois autovalores ($\\pm\\hbar/2$). Mesmo com spins inicialmente distribuídos "
+                "isotropicamente, cada medição projeta o átomo em um dos dois autoestados, com $P(+) = P(-) = \\operatorname{Tr}(\\hat{\\rho}\\hat{P}_\\pm) = 1/2$."
             )
 
     with st.container(border=True):
-        st.markdown("### Desafio 2: Por que 90° não zera o feixe?")
+        st.markdown("### Experimento 2: Analisadores Perpendiculares (90°)")
         st.write(
-            "Na óptica clássica, dois polarizadores cruzados a $90^\\circ$ bloqueiam 100% da luz. "
-            "Se prepararmos átomos em $|+\\hat{z}\\rangle$ ($0^\\circ$) e medirmos em $90^\\circ$ ($\\hat{x}$), quantos passam?"
+            "O Filtro 1 ($0^\\circ$) prepara o estado puro $|+z\\rangle$, que incide sobre um segundo analisador orientado em $90^\\circ$ ($\\hat{x}$). "
+            "Verifique por que a transmissão não se anula a $90^\\circ$, ao contrário de polarizadores ópticos cruzados."
         )
         st.button(
-            "▶️ Carregar Desafio 2 na Bancada",
+            "▶️ Carregar Experimento 2 na Bancada",
             on_click=carregar_cenario,
             args=("2. Projeção (2 Filtros)", 0, "+", 90, "+", 0, 1000)
         )
-        with st.expander("Ver explicação"):
+        with st.expander("Análise física"):
             st.write(
-                "Passam **50% em (+)** e **50% em (-)**! No espaço de Hilbert de spin-1/2, estados ortogonais estão separados por $180^\\circ$ "
-                "no espaço real (e não $90^\\circ$). É por isso que a fórmula leva $\\theta/2$: $\\cos^2(90^\\circ/2) = \\cos^2(45^\\circ) = 0{,}5$."
+                "Na base de $\\hat{S}_x$, o estado $|+z\\rangle = \\frac{1}{\\sqrt{2}}(|+x\\rangle + |-x\\rangle)$ é uma superposição simétrica. "
+                "Logo, $P(+x|+z) = P(-x|+z) = \\cos^2(90^\\circ/2) = 1/2$. Em spin-1/2, estados ortogonais correspondem a eixos antiparalelos ($180^\\circ$)."
             )
 
     with st.container(border=True):
-        st.markdown("### Desafio 3: O Paradoxo do 3º Filtro ($z \\to x \\to z$)")
+        st.markdown("### Experimento 3: Medição Intermediária e Reaparição de Estado (z → x → z)")
         st.write(
-            "O Filtro 1 ($0^\\circ$) seleciona apenas $|+\\hat{z}\\rangle$ e descarta todos os $|-\\hat{z}\\rangle$. "
-            "Se colocarmos um Filtro 2 em $90^\\circ$ (selecionando $+\\hat{x}$) antes de medir em $0^\\circ$ novamente, "
-            "**algum átomo pode voltar a sair como $|-\\hat{z}\\rangle$?**"
+            "O Filtro 1 ($0^\\circ$) seleciona apenas $|+z\\rangle$, bloqueando integralmente $|-z\\rangle$. "
+            "Compare o resultado no Filtro 3 ($0^\\circ$) quando o Filtro 2 intermediário está em $90^\\circ$ versus alinhado em $0^\\circ$."
         )
         c_d3a, c_d3b = st.columns(2)
         c_d3a.button(
-            "▶️ Testar COM Filtro 2 em 90° (z → x → z)",
+            "▶️ Carregar cascata z → x → z (F2 em 90°)",
             on_click=carregar_cenario,
             args=("3. Colapso de Estado (3 Filtros)", 0, "+", 90, "+", 0, 1000),
             use_container_width=True
         )
         c_d3b.button(
-            "▶️ Comparar com Filtro 2 em 0° (z → z → z)",
+            "▶️ Carregar controle z → z → z (F2 em 0°)",
             on_click=carregar_cenario,
             args=("3. Colapso de Estado (3 Filtros)", 0, "+", 0, "+", 0, 1000),
             use_container_width=True
         )
-        with st.expander("Ver explicação"):
+        with st.expander("Análise física"):
             st.write(
-                "Sim! Como os operadores $\\hat{S}_z$ e $\\hat{S}_x$ **não comutam**, o átomo não pode ter valores bem definidos "
-                "de $S_z$ e $S_x$ ao mesmo tempo. Medir $S_x$ no Filtro 2 colapsa o estado para $|+\\hat{x}\\rangle = \\frac{1}{\\sqrt{2}}(|+\\hat{z}\\rangle + |-\\hat{z}\\rangle)$, "
-                "fazendo a componente $|-\\hat{z}\\rangle$ reaparecer no Filtro 3."
+                "Como $[\\hat{S}_z, \\hat{S}_x] \\neq 0$, selecionar $|+x\\rangle$ em F2 projeta o estado em "
+                "$|+x\\rangle = \\frac{1}{\\sqrt{2}}(|+z\\rangle + |-z\\rangle)$, destruindo a preparação anterior em $z$ e fazendo "
+                "$|-z\\rangle$ reaparecer em F3 com probabilidade condicional $P(-z|+x) = 1/2$ (e probabilidade total $P_{\\text{total}} = 1/8$ desde a fonte)."
             )
 
 st.divider()
 st.markdown(
     """
     <div style="text-align: center; font-size: 0.85rem; color: #94a3b8;">
-        Desenvolvido por <strong style="color: #e2e8f0;">Prof. Wesley Sales de Souza</strong> •
+        Desenvolvido por <strong style="color: #e2e8f0;">Wesley Sales de Souza</strong> •
         Licenciatura em Física • DEFIS – IFMA •
         Grupo de Magnetismo e Física Computacional (GMFC)
     </div>
