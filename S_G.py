@@ -30,28 +30,3 @@ def simular_filtro(n_atomos, p_mais):
 z_mais, z_menos = auto_spin(0)
 p_mais, p_menos = P(z_mais, 60)
 print(simular_filtro(1000, p_mais))
-
-#...animacao...#
-
-with aba_exp:
-    desenhar_bancada()
-
-    if modo == "1. Quantização (1 Filtro)":
-        with st.expander("🎬 Como funciona o aparelho físico de Stern-Gerlach", expanded=True):
-            col_gif, col_txt = st.columns([1.1, 1.4])
-            with col_gif:
-                st.image(
-                    "sg_animacao.gif",
-                    caption="Montagem física: fonte, ímã não uniforme e tela.",
-                    use_container_width=True,
-                )
-            with col_txt:
-                st.markdown("""
-                **Entendendo a bancada real:**
-
-                1. **Fonte de átomos:** aquece átomos de prata, emitindo um feixe com spins em direções completamente aleatórias.
-                2. **Campo magnético não uniforme (N–S):** o gradiente de campo entre os polos aplica uma força vertical proporcional à componente do spin no eixo **z**.
-                3. **Tela de detecção:** em vez de formar uma faixa contínua (previsão clássica), o feixe se divide em apenas **dois pontos discretos** ($+\\hbar/2$ e $-\\hbar/2$).
-
-                *Depois de observar a animação, você pode recolher esta caixa clicando no título acima para focar nos gráficos.*
-                """)
